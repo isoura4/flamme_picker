@@ -46,7 +46,7 @@ async function startCamera() {
 
 function stopCamera() {
   if (stream) {
-    stream.getTracks().forEach(function (t) { t.stop(); });
+    stream.getTracks().forEach(t => t.stop());
     stream = null;
   }
 }
@@ -59,10 +59,10 @@ function capturePhoto() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
-  var ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0);
 
-  canvas.toBlob(function (blob) {
+  canvas.toBlob(blob => {
     capturedBlob = blob;
     document.getElementById('previewImg').src = URL.createObjectURL(blob);
 
@@ -90,24 +90,24 @@ function retakePhoto() {
 async function validatePhoto() {
   if (!capturedBlob) { toast('Aucune photo à publier.', 'error'); return; }
 
-  var btn = document.getElementById('validateBtn');
+  const btn = document.getElementById('validateBtn');
   btn.disabled = true;
   btn.textContent = 'Envoi…';
 
-  var year = new Date().getFullYear();
-  var caption = document.getElementById('photoCaption').value.trim();
+  const year = new Date().getFullYear();
+  const caption = document.getElementById('photoCaption').value.trim();
 
-  var formData = new FormData();
+  const formData = new FormData();
   formData.append('year', year.toString());
   if (caption) formData.append('caption', caption);
-  formData.append('image', capturedBlob, 'photo-' + Date.now() + '.jpg');
+  formData.append('image', capturedBlob, `photo-${Date.now()}.jpg`);
 
   try {
-    var res = await fetch('/api/kiosque/photo', {
+    const res = await fetch('/api/kiosque/photo', {
       method: 'POST',
       body: formData
     });
-    var data = await res.json();
+    const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erreur');
 
     // Show success
