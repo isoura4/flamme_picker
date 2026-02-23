@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flamme Picker – Memories</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-content">
+    <div class="logo">🔥 Flamme Picker</div>
+    <nav class="nav">
+      <a href="/" class="nav-link">Commander</a>
+      <a href="/memories.html" class="nav-link active">Memories</a>
+    </nav>
+  </div>
+</header>
+
+<main class="main-content">
+  <div class="page-header">
+    <h1>Memories</h1>
+    <p>Revivez les éditions précédentes</p>
+  </div>
+
+  <!-- Year filter tabs -->
+  <div class="year-tabs" id="yearTabs">
+    <button class="year-tab active" data-year="all">Toutes les années</button>
+    <!-- More tabs added by JS -->
+  </div>
+
+  <!-- Gallery -->
+  <div class="memories-grid" id="memoriesGrid">
+    <!-- Populated by JS -->
+  </div>
+
+  <div class="empty-state" id="emptyState" style="display:none">
+    <div class="icon">📷</div>
+    <h3>Aucune photo disponible</h3>
+    <p>Les souvenirs des prochaines éditions seront ajoutés ici.</p>
+  </div>
+</main>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" style="display:none">
+  <button class="lightbox-close" id="lightboxClose">✕</button>
+  <img id="lightboxImg" src="" alt="">
+  <div class="lightbox-caption" id="lightboxCaption" style="display:none"></div>
+</div>
+
+<script src="/js/memories.js"></script>
+</body>
+</html>
