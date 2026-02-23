@@ -139,6 +139,36 @@ app.get('/api/memories/years', (_req, res) => {
   res.json(years);
 });
 
+// Kiosque photo upload (public – webcam / smartphone camera)
+app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'image requise' });
+
+  const year = req.body.year || new Date().getFullYear().toString();
+  const yearNum = parseInt(year);
+  if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: 'Année invalide' });
+  }
+
+  // Move file to year-based folder
+  const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
+  if (!fs.existsSync(yearDir)) fs.mkdirSync(yearDir, { recursive: true });
+  const newFilePath = path.join(yearDir, req.file.filename);
+  fs.renameSync(req.file.path, newFilePath);
+
+  const db = readDB();
+  const memory = {
+    id: uuidv4(),
+    year: yearNum,
+    caption: (req.body.caption || '').trim().substring(0, 200),
+    imagePath: `/uploads/${yearNum}/${req.file.filename}`,
+    createdAt: new Date().toISOString()
+  };
+  db.memories.push(memory);
+  writeDB(db);
+  res.status(201).json(memory);
+});
+
 // ============================================================
 // ADMIN ROUTES
 // ============================================================
