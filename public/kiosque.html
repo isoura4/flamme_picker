@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flamme Picker – Photo Kiosque</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-content">
+    <div class="logo">🔥 Flamme Picker</div>
+    <nav class="nav">
+      <a href="/" class="nav-link">Commander</a>
+      <a href="/memories.html" class="nav-link">Memories</a>
+      <a href="/kiosque.html" class="nav-link active">📸 Photo</a>
+    </nav>
+  </div>
+</header>
+
+<main class="main-content">
+  <div class="page-header">
+    <h1>📸 Photo Kiosque</h1>
+    <p>Prenez une photo souvenir et partagez-la dans nos Memories !</p>
+  </div>
+
+  <!-- Camera view -->
+  <div class="kiosque-container" id="cameraView">
+    <div class="kiosque-video-wrap">
+      <video id="cameraFeed" autoplay playsinline></video>
+      <canvas id="cameraCanvas" style="display:none"></canvas>
+    </div>
+    <div class="kiosque-controls">
+      <button class="btn btn-primary btn-lg" id="captureBtn">📷 Prendre une photo</button>
+    </div>
+    <p id="cameraError" style="display:none;color:var(--danger);margin-top:0.75rem;font-size:0.85rem"></p>
+  </div>
+
+  <!-- Preview view -->
+  <div class="kiosque-container" id="previewView" style="display:none">
+    <div class="kiosque-preview-wrap">
+      <img id="previewImg" src="" alt="Aperçu de la photo">
+    </div>
+    <div class="form-group" style="max-width:400px;margin:1rem auto 0">
+      <label for="photoCaption">Légende (optionnel)</label>
+      <input type="text" id="photoCaption" placeholder="Décrivez votre photo…" maxlength="100">
+    </div>
+    <div class="kiosque-controls">
+      <button class="btn btn-secondary" id="retakeBtn">↻ Reprendre</button>
+      <button class="btn btn-success" id="validateBtn">✅ Valider et publier</button>
+    </div>
+  </div>
+
+  <!-- Success view -->
+  <div class="kiosque-container" id="successView" style="display:none">
+    <div class="kiosque-success">
+      <div class="modal-icon">🎉</div>
+      <h2>Photo publiée !</h2>
+      <p>Votre photo a été ajoutée aux Memories.</p>
+      <div class="kiosque-controls">
+        <a href="/memories.html" class="btn btn-secondary">Voir les Memories</a>
+        <button class="btn btn-primary" id="newPhotoBtn">📷 Nouvelle photo</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="/js/kiosque.js"></script>
+</body>
+</html>
