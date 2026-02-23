@@ -62,8 +62,9 @@ function renderGallery(memories) {
 
   empty.style.display = 'none';
   grid.innerHTML = memories.map(m => `
-    <div class="memory-card" data-img="${m.imagePath}" data-caption="${m.caption || ''}"
-         onclick="openLightbox('${m.imagePath}', '${(m.caption || '').replace(/'/g, "\\'")}')">
+    <div class="memory-card"
+         data-img="${m.imagePath.replace(/"/g, '&quot;')}"
+         data-caption="${(m.caption || '').replace(/"/g, '&quot;')}">
       <img class="memory-img" src="${m.imagePath}" alt="${m.caption || `Édition ${m.year}`}"
            loading="lazy" onerror="this.parentElement.style.display='none'">
       <div class="memory-info">
@@ -71,6 +72,10 @@ function renderGallery(memories) {
         <span class="memory-year">${m.year}</span>
       </div>
     </div>`).join('');
+
+  grid.querySelectorAll('.memory-card').forEach(card => {
+    card.addEventListener('click', () => openLightbox(card.dataset.img, card.dataset.caption));
+  });
 }
 
 // ---- Lightbox ----

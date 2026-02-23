@@ -2,25 +2,33 @@
 
 let selectedFlame = null;
 
-// ---- Flame SVG helper ----
-function flameSVG(color) {
-  const dark = shiftColor(color, -50);
+// ---- Flammekueche SVG icon ----
+function flammekuecheSVG(color) {
+  const light = shiftColor(color, 40);
+  const dark  = shiftColor(color, -40);
   return `
-    <svg class="flame-svg" style="--flame-color:${color}" viewBox="0 0 100 140"
+    <svg class="flame-svg" style="--flame-color:${color}" viewBox="0 0 160 100"
          xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="g${color.replace('#','')}" x1="50" y1="0" x2="50" y2="140"
-                        gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stop-color="${color}"/>
-          <stop offset="100%" stop-color="${dark}"/>
-        </linearGradient>
+        <radialGradient id="crust${color.replace('#','')}" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="${light}"/>
+          <stop offset="100%" stop-color="${shiftColor(color, -60)}"/>
+        </radialGradient>
       </defs>
-      <path d="M50 8 C42 30 18 55 18 85 C18 115 32 135 50 135
-               C68 135 82 115 82 85 C82 55 58 30 50 8Z"
-            fill="url(#g${color.replace('#','')})"/>
-      <path d="M50 50 C45 65 36 78 36 92 C36 107 42 120 50 122
-               C58 120 64 107 64 92 C64 78 55 65 50 50Z"
-            fill="rgba(255,255,255,0.35)"/>
+      <!-- Crust / base -->
+      <ellipse cx="80" cy="50" rx="76" ry="46" fill="#C8A96E"/>
+      <!-- Topping surface -->
+      <ellipse cx="80" cy="50" rx="64" ry="36" fill="url(#crust${color.replace('#','')})"/>
+      <!-- Topping dots (ingredients) -->
+      <circle cx="55" cy="42" r="5" fill="${dark}" opacity="0.85"/>
+      <circle cx="72" cy="36" r="4" fill="${dark}" opacity="0.75"/>
+      <circle cx="90" cy="40" r="5" fill="${dark}" opacity="0.85"/>
+      <circle cx="62" cy="56" r="4" fill="${dark}" opacity="0.75"/>
+      <circle cx="80" cy="60" r="5" fill="${dark}" opacity="0.85"/>
+      <circle cx="98" cy="54" r="4" fill="${dark}" opacity="0.75"/>
+      <circle cx="108" cy="43" r="4" fill="${dark}" opacity="0.7"/>
+      <!-- Highlight -->
+      <ellipse cx="68" cy="40" rx="18" ry="8" fill="rgba(255,255,255,0.12)" transform="rotate(-15 68 40)"/>
     </svg>`;
 }
 
@@ -57,7 +65,7 @@ async function loadFlames() {
 
     grid.innerHTML = flames.map(f => `
       <div class="flame-card" data-id="${f.id}" data-name="${f.name}" data-color="${f.color}">
-        <div class="flame-icon">${flameSVG(f.color)}</div>
+        <div class="flame-icon">${flammekuecheSVG(f.color)}</div>
         <div class="flame-name">${f.name}</div>
         <div class="flame-description">${f.description || ''}</div>
       </div>`).join('');
@@ -84,7 +92,7 @@ function selectFlame(card) {
     <div class="selected-flame-dot" style="background:${selectedFlame.color}"></div>
     <div>
       <div class="selected-flame-name">${selectedFlame.name}</div>
-      <div style="font-size:0.8rem;color:var(--text-muted)">Flamme sélectionnée</div>
+      <div style="font-size:0.8rem;color:var(--text-muted)">Flammekueche sélectionnée</div>
     </div>`;
 
   const form = document.getElementById('orderForm');
@@ -105,7 +113,7 @@ document.getElementById('cancelOrder').addEventListener('click', () => {
 document.getElementById('confirmOrder').addEventListener('click', async () => {
   const name = document.getElementById('customerName').value.trim();
   if (!name) { toast('Veuillez entrer votre prénom.', 'error'); return; }
-  if (!selectedFlame) { toast('Veuillez sélectionner une flamme.', 'error'); return; }
+  if (!selectedFlame) { toast('Veuillez sélectionner une flammekueche.', 'error'); return; }
 
   const btn = document.getElementById('confirmOrder');
   btn.disabled = true;

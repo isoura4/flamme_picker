@@ -225,7 +225,7 @@ document.getElementById('addFlameBtn').addEventListener('click', async () => {
     if (!res.ok) throw new Error();
     document.getElementById('flameName').value = '';
     document.getElementById('flameDesc').value = '';
-    toast('Flamme ajoutée !');
+    toast('Flammekueche ajoutée !');
     loadFlames();
   } catch {
     toast('Erreur lors de l\'ajout', 'error');

@@ -3,6 +3,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,12 +41,12 @@ function writeDB(data) {
 function initDB() {
   const data = {
     flames: [
-      { id: '1', name: 'Flamme Rouge',    description: 'Rouge vif et intense',       color: '#FF3D00', available: true },
-      { id: '2', name: 'Flamme Orange',   description: 'Chaude et lumineuse',        color: '#FF6B35', available: true },
-      { id: '3', name: 'Flamme Dorée',    description: 'Brillante et élégante',      color: '#FFD700', available: true },
-      { id: '4', name: 'Flamme Bleue',    description: 'Mystérieuse et froide',      color: '#4FC3F7', available: true },
-      { id: '5', name: 'Flamme Verte',    description: 'Envoûtante et rare',         color: '#69F0AE', available: true },
-      { id: '6', name: 'Flamme Violette', description: 'Magique et unique',          color: '#CE93D8', available: true }
+      { id: '1', name: 'Classique',     description: 'Crème fraîche, lardons, oignons',             color: '#E8C97A', available: true },
+      { id: '2', name: 'Forestière',    description: 'Crème fraîche, champignons, lardons',          color: '#8B7355', available: true },
+      { id: '3', name: 'Alsacienne',    description: 'Crème fraîche, lardons fumés, munster',        color: '#FF7043', available: true },
+      { id: '4', name: 'Gratinée',      description: 'Crème fraîche, lardons, gruyère fondu',        color: '#FFC107', available: true },
+      { id: '5', name: 'Végétarienne',  description: 'Crème fraîche, poivrons, champignons, oignons',color: '#66BB6A', available: true },
+      { id: '6', name: 'Sucrée',        description: 'Crème fraîche, pommes, cannelle, sucre',       color: '#F48FB1', available: true }
     ],
     orders: [],
     memories: []
@@ -58,6 +59,10 @@ function initDB() {
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Rate limiters
+const orderLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+const uploadLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
 
 function verifyAdmin(req, res, next) {
   const auth = req.headers.authorization;
@@ -94,7 +99,7 @@ app.get('/api/flames', (_req, res) => {
 });
 
 // Place an order
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', orderLimiter, (req, res) => {
   const { flameId, customerName } = req.body;
   if (!flameId || !customerName || !customerName.trim()) {
     return res.status(400).json({ error: 'flameId et customerName sont requis' });
@@ -211,7 +216,7 @@ app.delete('/api/admin/flames/:id', verifyAdmin, (req, res) => {
 
 // --- Memories ---
 
-app.post('/api/admin/memories', verifyAdmin, upload.single('image'), (req, res) => {
+app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), (req, res) => {
   const { year, caption } = req.body;
   if (!req.file || !year) return res.status(400).json({ error: 'image et year sont requis' });
   const db = readDB();
@@ -227,7 +232,7 @@ app.post('/api/admin/memories', verifyAdmin, upload.single('image'), (req, res) 
   res.status(201).json(memory);
 });
 
-app.delete('/api/admin/memories/:id', verifyAdmin, (req, res) => {
+app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, (req, res) => {
   const db = readDB();
   const memory = db.memories.find(m => m.id === req.params.id);
   if (memory) {
