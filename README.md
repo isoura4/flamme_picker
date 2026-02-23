@@ -57,15 +57,17 @@ PORT=8080 npm start
 
 ## Environment Variables
 
-| Variable         | Default     | Description                                      |
-|------------------|-------------|--------------------------------------------------|
-| `PORT`           | `3000`      | Port the server listens on                       |
-| `ADMIN_PASSWORD` | `admin123`  | Password for the admin panel (**change in production**) |
+| Variable         | Default                  | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| `PORT`           | `3000`                   | Port the server listens on                                        |
+| `ADMIN_PASSWORD` | `admin123`               | Password for the admin panel (**change in production**)           |
+| `OLLAMA_URL`     | `http://localhost:11434` | URL of the Ollama server for AI photo descriptions                |
+| `OLLAMA_MODEL`   | `llava`                  | Ollama vision model to use (must support image input)             |
 
 Example:
 
 ```bash
-ADMIN_PASSWORD=mysecretpassword PORT=4000 npm start
+ADMIN_PASSWORD=mysecretpassword OLLAMA_URL=http://localhost:11434 OLLAMA_MODEL=llava PORT=4000 npm start
 ```
 
 > ⚠️ Always set a strong `ADMIN_PASSWORD` in production. The app will print a warning if the default password is used.
@@ -89,6 +91,14 @@ Navigate to **http://localhost:3000/memories.html** to browse photos from previo
 
 - Use the year tabs at the top to filter photos by year.
 - Click any photo to open it in a lightbox view.
+
+### Photo Kiosque
+
+Navigate to **http://localhost:3000/kiosque.html** to take a photo souvenir.
+
+- Photos are automatically cropped to **4:3 aspect ratio** for a consistent polaroid look.
+- After capturing, you can optionally click **🤖 Description IA** to generate a funny AI caption using Ollama (requires a running Ollama instance with a vision model like `llava`).
+- Click **✅ Valider et publier** to add the photo to the Memories gallery.
 
 ---
 
@@ -150,12 +160,14 @@ flamme_picker/
     ├── index.html     # Customer ordering page
     ├── admin.html     # Admin panel
     ├── memories.html  # Public memories gallery
+    ├── kiosque.html   # Photo booth / webcam capture
     ├── css/
     │   └── style.css
     ├── images/        # Default flammekueche images
     ├── js/
     │   ├── order.js
     │   ├── admin.js
-    │   └── memories.js
+    │   ├── memories.js
+    │   └── kiosque.js
     └── uploads/       # Uploaded memory photos (auto-created)
 ```

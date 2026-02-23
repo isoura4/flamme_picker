@@ -51,16 +51,37 @@ function stopCamera() {
   }
 }
 
-// ---- Capture ----
+// ---- Capture (forced 4:3 crop) ----
 function capturePhoto() {
   const video = document.getElementById('cameraFeed');
   const canvas = document.getElementById('cameraCanvas');
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+
+  // Calculate the largest centered 4:3 crop
+  const targetRatio = 4 / 3;
+  let cropW, cropH, cropX, cropY;
+
+  if (vw / vh > targetRatio) {
+    // Video is wider than 4:3 → crop sides
+    cropH = vh;
+    cropW = Math.round(vh * targetRatio);
+    cropX = Math.round((vw - cropW) / 2);
+    cropY = 0;
+  } else {
+    // Video is taller than 4:3 → crop top/bottom
+    cropW = vw;
+    cropH = Math.round(vw / targetRatio);
+    cropX = 0;
+    cropY = Math.round((vh - cropH) / 2);
+  }
+
+  canvas.width = cropW;
+  canvas.height = cropH;
 
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0);
+  ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
   canvas.toBlob(blob => {
     capturedBlob = blob;
@@ -84,6 +105,35 @@ function retakePhoto() {
   document.getElementById('cameraView').style.display = 'block';
 
   startCamera();
+}
+
+// ---- AI description (Ollama vision) ----
+async function generateAICaption() {
+  if (!capturedBlob) { toast('Aucune photo capturée.', 'error'); return; }
+
+  const btn = document.getElementById('aiCaptionBtn');
+  btn.disabled = true;
+  btn.textContent = '🤖 Génération…';
+
+  const formData = new FormData();
+  formData.append('image', capturedBlob, `photo-${Date.now()}.jpg`);
+
+  try {
+    const res = await fetch('/api/kiosque/describe', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur');
+
+    document.getElementById('photoCaption').value = data.caption;
+    toast('Description IA générée !');
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 Description IA';
+  }
 }
 
 // ---- Validate & upload ----
@@ -133,6 +183,7 @@ function newPhoto() {
 // ---- Event listeners ----
 document.getElementById('captureBtn').addEventListener('click', capturePhoto);
 document.getElementById('retakeBtn').addEventListener('click', retakePhoto);
+document.getElementById('aiCaptionBtn').addEventListener('click', generateAICaption);
 document.getElementById('validateBtn').addEventListener('click', validatePhoto);
 document.getElementById('newPhotoBtn').addEventListener('click', newPhoto);
 
