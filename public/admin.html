@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flamme Picker – Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-content">
+    <div class="logo">🔥 Flamme Picker</div>
+    <nav class="nav">
+      <a href="/" class="nav-link">Commander</a>
+      <a href="/memories.html" class="nav-link">Memories</a>
+      <button class="nav-link" id="logoutBtn" style="display:none;background:none;border:none;cursor:pointer;font-family:inherit">
+        Déconnexion
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="logo-big">🔥</div>
+    <h2>Espace Admin</h2>
+    <p>Entrez le mot de passe pour accéder au panneau d'administration.</p>
+    <div class="form-group">
+      <label for="adminPassword">Mot de passe</label>
+      <input type="password" id="adminPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" id="loginBtn" style="width:100%">Se connecter</button>
+    <p class="error-msg" id="loginError"></p>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" style="display:none">
+  <div class="admin-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-title">Navigation</div>
+      <button class="sidebar-link active" data-tab="orders">
+        <span class="icon">📋</span> Commandes
+      </button>
+      <button class="sidebar-link" data-tab="flames">
+        <span class="icon">🔥</span> Flammes
+      </button>
+      <button class="sidebar-link" data-tab="memories">
+        <span class="icon">📷</span> Memories
+      </button>
+    </aside>
+
+    <!-- Main area -->
+    <main class="admin-main">
+
+      <!-- ======= ORDERS ======= -->
+      <div class="section active" id="section-orders">
+        <div class="section-header">
+          <h2>📋 Commandes</h2>
+          <button class="btn btn-secondary btn-sm" id="refreshOrders">↻ Rafraîchir</button>
+        </div>
+
+        <div class="stats-strip" id="ordersStats"></div>
+
+        <div class="table-wrapper">
+          <table id="ordersTable">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Flamme</th>
+                <th>Date</th>
+                <th>Préparée</th>
+                <th>Envoyée</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ======= FLAMES ======= -->
+      <div class="section" id="section-flames">
+        <div class="section-header">
+          <h2>🔥 Gestion des flammes</h2>
+        </div>
+
+        <!-- Add flame form -->
+        <div class="inline-form" id="addFlameForm">
+          <h3>Ajouter une flamme</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nom</label>
+              <input type="text" id="flameName" placeholder="Ex: Flamme Turquoise">
+            </div>
+            <div class="form-group">
+              <label>Couleur</label>
+              <input type="color" id="flameColor" value="#FF6B35" style="height:42px;padding:4px 8px">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="flameDesc" placeholder="Ex: Fraîche et apaisante">
+          </div>
+          <button class="btn btn-primary btn-sm" id="addFlameBtn">+ Ajouter</button>
+        </div>
+
+        <div class="flames-admin-grid" id="flamesAdminGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- ======= MEMORIES ======= -->
+      <div class="section" id="section-memories">
+        <div class="section-header">
+          <h2>📷 Gestion des Memories</h2>
+        </div>
+
+        <!-- Upload form -->
+        <div class="inline-form">
+          <h3>Ajouter une photo</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Année</label>
+              <input type="number" id="memoryYear" min="2000" max="2100" placeholder="2024">
+            </div>
+            <div class="form-group">
+              <label>Légende (optionnel)</label>
+              <input type="text" id="memoryCaption" placeholder="Description de la photo">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Photo</label>
+            <input type="file" id="memoryFile" accept="image/*" style="color:var(--text)">
+          </div>
+          <button class="btn btn-primary btn-sm" id="uploadMemoryBtn">📤 Téléverser</button>
+        </div>
+
+        <div class="memories-grid" id="memoriesAdminGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>

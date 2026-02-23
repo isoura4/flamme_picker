@@ -1,0 +1,14 @@
+{
+  "name": "flamme-picker",
+  "version": "1.0.0",
+  "description": "Kiosk flame ordering website",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^2.0.2",
+    "uuid": "^9.0.0"
+  }
+}

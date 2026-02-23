@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flamme Picker – Commander</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-content">
+    <div class="logo">🔥 Flamme Picker</div>
+    <nav class="nav">
+      <a href="/" class="nav-link active">Commander</a>
+      <a href="/memories.html" class="nav-link">Memories</a>
+    </nav>
+  </div>
+</header>
+
+<main class="main-content">
+  <div class="page-header">
+    <h1>Choisissez votre flamme</h1>
+    <p>Sélectionnez une flamme dans notre collection</p>
+  </div>
+
+  <div class="flames-grid" id="flamesGrid">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- Order form (shown after selecting a flame) -->
+  <div class="order-form" id="orderForm" style="display:none">
+    <div class="selected-flame-info" id="selectedFlameInfo"></div>
+    <div class="form-group">
+      <label for="customerName">Votre prénom</label>
+      <input type="text" id="customerName" placeholder="Entrez votre prénom" maxlength="60" autocomplete="off">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" id="cancelOrder">Annuler</button>
+      <button class="btn btn-primary" id="confirmOrder">Commander 🔥</button>
+    </div>
+  </div>
+</main>
+
+<!-- Success modal -->
+<div class="modal-overlay" id="successModal" style="display:none">
+  <div class="modal">
+    <div class="modal-icon">✅</div>
+    <h2>Commande confirmée !</h2>
+    <p id="successMessage"></p>
+    <button class="btn btn-primary" id="closeModal" style="max-width:220px;margin:0 auto">
+      Nouvelle commande
+    </button>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="/js/order.js"></script>
+</body>
+</html>
