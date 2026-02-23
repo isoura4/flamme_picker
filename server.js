@@ -41,12 +41,12 @@ function writeDB(data) {
 function initDB() {
   const data = {
     flames: [
-      { id: '1', name: 'Classique',     description: 'Crème fraîche, lardons, oignons',             color: '#E8C97A', available: true },
-      { id: '2', name: 'Forestière',    description: 'Crème fraîche, champignons, lardons',          color: '#8B7355', available: true },
-      { id: '3', name: 'Alsacienne',    description: 'Crème fraîche, lardons fumés, munster',        color: '#FF7043', available: true },
-      { id: '4', name: 'Gratinée',      description: 'Crème fraîche, lardons, gruyère fondu',        color: '#FFC107', available: true },
-      { id: '5', name: 'Végétarienne',  description: 'Crème fraîche, poivrons, champignons, oignons',color: '#66BB6A', available: true },
-      { id: '6', name: 'Sucrée',        description: 'Crème fraîche, pommes, cannelle, sucre',       color: '#F48FB1', available: true }
+      { id: '1', name: 'Classique',     description: 'Crème fraîche, lardons, oignons',              color: '#E8C97A', image: '/images/classique.jpg',    available: true },
+      { id: '2', name: 'Forestière',    description: 'Crème fraîche, champignons, lardons',           color: '#8B7355', image: '/images/forestiere.jpg',   available: true },
+      { id: '3', name: 'Alsacienne',    description: 'Crème fraîche, lardons fumés, munster',         color: '#FF7043', image: '/images/alsacienne.jpg',   available: true },
+      { id: '4', name: 'Gratinée',      description: 'Crème fraîche, lardons, gruyère fondu',         color: '#FFC107', image: '/images/gratinee.jpg',     available: true },
+      { id: '5', name: 'Végétarienne',  description: 'Crème fraîche, poivrons, champignons, oignons', color: '#66BB6A', image: '/images/vegetarienne.jpg', available: true },
+      { id: '6', name: 'Sucrée',        description: 'Crème fraîche, pommes, cannelle, sucre',        color: '#F48FB1', image: '/images/sucree.jpg',       available: true }
     ],
     orders: [],
     memories: []
@@ -185,10 +185,10 @@ app.get('/api/admin/flames', verifyAdmin, (_req, res) => {
 });
 
 app.post('/api/admin/flames', verifyAdmin, (req, res) => {
-  const { name, description, color } = req.body;
+  const { name, description, color, image } = req.body;
   if (!name || !color) return res.status(400).json({ error: 'name et color sont requis' });
   const db = readDB();
-  const flame = { id: uuidv4(), name, description: description || '', color, available: true };
+  const flame = { id: uuidv4(), name, description: description || '', color, image: image || null, available: true };
   db.flames.push(flame);
   writeDB(db);
   res.status(201).json(flame);
@@ -198,10 +198,11 @@ app.put('/api/admin/flames/:id', verifyAdmin, (req, res) => {
   const db = readDB();
   const flame = db.flames.find(f => f.id === req.params.id);
   if (!flame) return res.status(404).json({ error: 'Flamme introuvable' });
-  const { name, description, color, available } = req.body;
+  const { name, description, color, image, available } = req.body;
   if (name !== undefined) flame.name = name;
   if (description !== undefined) flame.description = description;
   if (color !== undefined) flame.color = color;
+  if (image !== undefined) flame.image = image;
   if (available !== undefined) flame.available = available;
   writeDB(db);
   res.json(flame);

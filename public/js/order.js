@@ -2,49 +2,11 @@
 
 let selectedFlame = null;
 
-// ---- Flammekueche SVG icon ----
-function flammekuecheSVG(color) {
-  const light = shiftColor(color, 40);
-  const dark  = shiftColor(color, -40);
-  return `
-    <svg class="flame-svg" style="--flame-color:${color}" viewBox="0 0 160 100"
-         xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="crust${color.replace('#','')}" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stop-color="${light}"/>
-          <stop offset="100%" stop-color="${shiftColor(color, -60)}"/>
-        </radialGradient>
-      </defs>
-      <!-- Crust / base -->
-      <ellipse cx="80" cy="50" rx="76" ry="46" fill="#C8A96E"/>
-      <!-- Topping surface -->
-      <ellipse cx="80" cy="50" rx="64" ry="36" fill="url(#crust${color.replace('#','')})"/>
-      <!-- Topping dots (ingredients) -->
-      <circle cx="55" cy="42" r="5" fill="${dark}" opacity="0.85"/>
-      <circle cx="72" cy="36" r="4" fill="${dark}" opacity="0.75"/>
-      <circle cx="90" cy="40" r="5" fill="${dark}" opacity="0.85"/>
-      <circle cx="62" cy="56" r="4" fill="${dark}" opacity="0.75"/>
-      <circle cx="80" cy="60" r="5" fill="${dark}" opacity="0.85"/>
-      <circle cx="98" cy="54" r="4" fill="${dark}" opacity="0.75"/>
-      <circle cx="108" cy="43" r="4" fill="${dark}" opacity="0.7"/>
-      <!-- Highlight -->
-      <ellipse cx="68" cy="40" rx="18" ry="8" fill="rgba(255,255,255,0.12)" transform="rotate(-15 68 40)"/>
-    </svg>`;
-}
-
-function shiftColor(hex, amount) {
-  const n = parseInt(hex.replace('#',''), 16);
-  const r = Math.max(0, Math.min(255, (n >> 16) + amount));
-  const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + amount));
-  const b = Math.max(0, Math.min(255, (n & 0xff) + amount));
-  return '#' + [r, g, b].map(v => v.toString(16).padStart(2,'0')).join('');
-}
-
 // ---- Toast ----
 function toast(msg, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = (type === 'success' ? '✅ ' : '❌ ') + msg;
+  el.textContent = (type === 'success' ? '✅ ' : '❌ ') + msg;
   document.getElementById('toastContainer').appendChild(el);
   setTimeout(() => el.remove(), 3200);
 }
@@ -58,26 +20,46 @@ async function loadFlames() {
 
     if (!flames.length) {
       grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-        <div class="icon">🔥</div><h3>Aucune flamme disponible</h3>
+        <div class="icon">🫓</div><h3>Aucune flammekueche disponible</h3>
         <p>Revenez bientôt.</p></div>`;
       return;
     }
 
-    grid.innerHTML = flames.map(f => `
-      <div class="flame-card" data-id="${f.id}" data-name="${f.name}" data-color="${f.color}">
-        <div class="flame-icon">${flammekuecheSVG(f.color)}</div>
-        <div class="flame-name">${f.name}</div>
-        <div class="flame-description">${f.description || ''}</div>
-      </div>`).join('');
+    grid.innerHTML = flames.map(f => {
+      const imgHTML = f.image
+        ? `<img src="${f.image}" alt="" loading="lazy" class="flame-img">`
+        : '';
+      return `
+        <div class="flame-card" data-id="${f.id}" data-name="${f.name}" data-color="${f.color}"
+             data-image="${f.image || ''}">
+          <div class="flame-image-wrap">
+            ${imgHTML}
+            <div class="flame-img-placeholder" style="${f.image ? 'display:none' : ''}">🫓</div>
+          </div>
+          <div class="flame-card-body">
+            <div class="flame-name">${f.name}</div>
+            <div class="flame-description">${f.description || ''}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Swap placeholder in on image load error
+    grid.querySelectorAll('.flame-img').forEach(img => {
+      img.addEventListener('error', () => {
+        img.style.display = 'none';
+        const placeholder = img.nextElementSibling;
+        if (placeholder) placeholder.style.display = '';
+      });
+    });
 
     grid.querySelectorAll('.flame-card').forEach(card => {
       card.addEventListener('click', () => selectFlame(card));
     });
 
-  } catch {
+  } catch (e) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
       <div class="icon">⚠️</div><h3>Erreur de chargement</h3>
-      <p>Impossible de charger les flammes.</p></div>`;
+      <p>Impossible de charger les flammekueches.</p></div>`;
   }
 }
 
@@ -85,19 +67,44 @@ async function loadFlames() {
 function selectFlame(card) {
   document.querySelectorAll('.flame-card').forEach(c => c.classList.remove('selected'));
   card.classList.add('selected');
-  selectedFlame = { id: card.dataset.id, name: card.dataset.name, color: card.dataset.color };
+  selectedFlame = {
+    id:    card.dataset.id,
+    name:  card.dataset.name,
+    color: card.dataset.color,
+    image: card.dataset.image
+  };
 
   const info = document.getElementById('selectedFlameInfo');
-  info.innerHTML = `
-    <div class="selected-flame-dot" style="background:${selectedFlame.color}"></div>
-    <div>
-      <div class="selected-flame-name">${selectedFlame.name}</div>
-      <div style="font-size:0.8rem;color:var(--text-muted)">Flammekueche sélectionnée</div>
-    </div>`;
+  info.innerHTML = '';
+
+  if (selectedFlame.image) {
+    const thumb = document.createElement('img');
+    thumb.className = 'selected-flame-thumb';
+    thumb.src = selectedFlame.image;
+    thumb.alt = '';
+    thumb.addEventListener('error', () => { thumb.style.display = 'none'; });
+    info.appendChild(thumb);
+  } else {
+    const dot = document.createElement('div');
+    dot.className = 'selected-flame-dot';
+    dot.style.background = selectedFlame.color;
+    info.appendChild(dot);
+  }
+
+  const textDiv = document.createElement('div');
+  const nameDiv = document.createElement('div');
+  nameDiv.className = 'selected-flame-name';
+  nameDiv.textContent = selectedFlame.name;
+  const subDiv = document.createElement('div');
+  subDiv.style.cssText = 'font-size:0.78rem;color:var(--text-muted)';
+  subDiv.textContent = 'Flammekueche sélectionnée';
+  textDiv.appendChild(nameDiv);
+  textDiv.appendChild(subDiv);
+  info.appendChild(textDiv);
 
   const form = document.getElementById('orderForm');
   form.style.display = 'block';
-  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   document.getElementById('customerName').focus();
 }
 
@@ -126,14 +133,12 @@ document.getElementById('confirmOrder').addEventListener('click', async () => {
       body: JSON.stringify({ flameId: selectedFlame.id, customerName: name })
     });
     const data = await res.json();
-
     if (!res.ok) throw new Error(data.error || 'Erreur');
 
     document.getElementById('successMessage').textContent =
       `Merci ${name} ! Votre ${selectedFlame.name} a bien été commandée.`;
     document.getElementById('successModal').style.display = 'flex';
 
-    // Reset form
     selectedFlame = null;
     document.querySelectorAll('.flame-card').forEach(c => c.classList.remove('selected'));
     document.getElementById('orderForm').style.display = 'none';

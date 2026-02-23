@@ -183,36 +183,56 @@ async function loadFlames() {
 function renderFlamesAdmin(flames) {
   const grid = document.getElementById('flamesAdminGrid');
   if (!flames.length) {
-    grid.innerHTML = '<p style="color:var(--text-muted)">Aucune flamme.</p>';
+    grid.innerHTML = '<p style="color:var(--text-muted)">Aucune flammekueche.</p>';
     return;
   }
-  grid.innerHTML = flames.map(f => `
+  grid.innerHTML = flames.map(f => {
+    const imgHTML = f.image
+      ? `<img class="flame-admin-card-img flame-admin-img" src="${f.image}" alt="">`
+      : `<div class="flame-admin-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:var(--bg)">🫓</div>`;
+    return `
     <div class="flame-admin-card" id="fcard-${f.id}">
-      <div class="flame-admin-card-header">
-        <div class="flame-color-swatch" style="background:${f.color}"></div>
-        <div>
-          <div class="flame-admin-name">${f.name}</div>
-          <span class="badge ${f.available ? 'badge-success' : 'badge-muted'}">
-            ${f.available ? '● Disponible' : '● Indisponible'}
-          </span>
+      ${imgHTML}
+      <div class="flame-admin-card-body">
+        <div class="flame-admin-card-header">
+          <div class="flame-color-swatch" style="background:${f.color}"></div>
+          <div>
+            <div class="flame-admin-name">${f.name}</div>
+            <span class="badge ${f.available ? 'badge-success' : 'badge-muted'}">
+              ${f.available ? '● Disponible' : '● Indisponible'}
+            </span>
+          </div>
+        </div>
+        <div class="flame-admin-desc">${f.description || '—'}</div>
+        <div class="flame-admin-actions">
+          <button class="btn btn-secondary btn-sm"
+                  onclick="toggleFlame('${f.id}', ${!f.available})">
+            ${f.available ? 'Désactiver' : 'Activer'}
+          </button>
+          <button class="btn btn-danger btn-sm btn-icon"
+                  onclick="deleteFlame('${f.id}')">🗑</button>
         </div>
       </div>
-      <div class="flame-admin-desc">${f.description || '—'}</div>
-      <div class="flame-admin-actions">
-        <button class="btn btn-secondary btn-sm"
-                onclick="toggleFlame('${f.id}', ${!f.available})">
-          ${f.available ? 'Désactiver' : 'Activer'}
-        </button>
-        <button class="btn btn-danger btn-sm btn-icon"
-                onclick="deleteFlame('${f.id}')">🗑</button>
-      </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  // Swap placeholder on image error
+  grid.querySelectorAll('.flame-admin-img').forEach(img => {
+    img.addEventListener('error', () => {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'flame-admin-card-img';
+      placeholder.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:var(--bg)';
+      placeholder.textContent = '🫓';
+      img.replaceWith(placeholder);
+    });
+  });
 }
 
 document.getElementById('addFlameBtn').addEventListener('click', async () => {
   const name  = document.getElementById('flameName').value.trim();
   const color = document.getElementById('flameColor').value;
   const desc  = document.getElementById('flameDesc').value.trim();
+  const image = document.getElementById('flameImage').value.trim();
 
   if (!name) { toast('Le nom est requis.', 'error'); return; }
 
@@ -220,11 +240,12 @@ document.getElementById('addFlameBtn').addEventListener('click', async () => {
     const res = await fetch('/api/admin/flames', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ name, color, description: desc })
+      body: JSON.stringify({ name, color, description: desc, image })
     });
     if (!res.ok) throw new Error();
     document.getElementById('flameName').value = '';
     document.getElementById('flameDesc').value = '';
+    document.getElementById('flameImage').value = '';
     toast('Flammekueche ajoutée !');
     loadFlames();
   } catch {
