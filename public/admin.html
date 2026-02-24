@@ -64,7 +64,13 @@
       <div class="section active" id="section-orders">
         <div class="section-header">
           <h2>📋 Commandes</h2>
-          <button class="btn btn-secondary btn-sm" id="refreshOrders">↻ Rafraîchir</button>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <button class="btn btn-secondary btn-sm auto-refresh-btn active" id="toggleAutoRefresh"
+                    title="Auto-refresh actif (toutes les 15 s) – cliquez pour désactiver">
+              🔄 Auto
+            </button>
+            <button class="btn btn-secondary btn-sm" id="refreshOrders">↻ Rafraîchir</button>
+          </div>
         </div>
 
         <div class="stats-strip" id="ordersStats"></div>

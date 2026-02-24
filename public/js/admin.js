@@ -1,6 +1,8 @@
 /* admin.js – Admin panel */
 
 let TOKEN = sessionStorage.getItem('adminToken') || '';
+let autoRefreshInterval = null;
+const AUTO_REFRESH_DELAY = 15000; // 15 seconds
 
 // ---- Helpers ----
 function authHeaders() {
@@ -50,11 +52,13 @@ function showPanel() {
   document.getElementById('adminPanel').style.display = 'block';
   document.getElementById('logoutBtn').style.display = '';
   loadOrders();
+  startAutoRefresh();
 }
 
 function logout() {
   TOKEN = '';
   sessionStorage.removeItem('adminToken');
+  stopAutoRefresh();
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('adminPanel').style.display = 'none';
   document.getElementById('logoutBtn').style.display = 'none';
@@ -69,7 +73,12 @@ document.querySelectorAll('.sidebar-link[data-tab]').forEach(link => {
     link.classList.add('active');
     document.getElementById(`section-${link.dataset.tab}`).classList.add('active');
 
-    if (link.dataset.tab === 'orders')   loadOrders();
+    if (link.dataset.tab === 'orders') {
+      loadOrders();
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
     if (link.dataset.tab === 'flames')   loadFlames();
     if (link.dataset.tab === 'memories') loadAdminMemories();
   });
@@ -166,6 +175,36 @@ async function deleteOrder(id) {
 }
 
 document.getElementById('refreshOrders').addEventListener('click', loadOrders);
+
+// ---- Auto-refresh ----
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshInterval = setInterval(loadOrders, AUTO_REFRESH_DELAY);
+  const btn = document.getElementById('toggleAutoRefresh');
+  if (btn) {
+    btn.classList.add('active');
+    btn.title = 'Auto-refresh actif (toutes les 15 s) – cliquez pour désactiver';
+  }
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
+  const btn = document.getElementById('toggleAutoRefresh');
+  if (btn) {
+    btn.classList.remove('active');
+    btn.title = 'Auto-refresh désactivé – cliquez pour activer';
+  }
+}
+
+function toggleAutoRefresh() {
+  if (autoRefreshInterval) stopAutoRefresh();
+  else startAutoRefresh();
+}
+
+document.getElementById('toggleAutoRefresh').addEventListener('click', toggleAutoRefresh);
 
 // ---- FLAMES ----
 async function loadFlames() {
