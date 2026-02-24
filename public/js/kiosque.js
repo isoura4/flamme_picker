@@ -167,20 +167,20 @@ function getDecorationItems(deco) {
   const rotations = [0.1, -0.2, 0.3, -0.1, 0.15, -0.25, 0.2, -0.15, 0.05, -0.3, 0.25, -0.05];
   const sizes = [0.06, 0.05, 0.07, 0.055, 0.065, 0.05, 0.06, 0.055, 0.07, 0.05, 0.06, 0.065];
 
-  const emojiMap = {
-    confetti: ['🎊', '🎉', '✨', '🎊', '🎉', '✨', '🎊', '🎉', '✨', '🎊', '🎉', '✨'],
-    flamme:   ['🫓', '🔥', '🫓', '🔥', '🫓', '🔥', '🫓', '🔥', '🫓', '🔥', '🫓', '🔥'],
-    toque:    ['👨‍🍳', '👩‍🍳', '🧑‍🍳', '👨‍🍳', '👩‍🍳', '🧑‍🍳', '👨‍🍳', '👩‍🍳', '🧑‍🍳', '👨‍🍳', '👩‍🍳', '🧑‍🍳'],
-    stars:    ['⭐', '🌟', '💫', '⭐', '🌟', '💫', '⭐', '🌟', '💫', '⭐', '🌟', '💫'],
-    hearts:   ['❤️', '🧡', '💛', '💚', '💙', '💜', '❤️', '🧡', '💛', '💚', '💙', '💜']
+  const emojiPatterns = {
+    confetti: ['🎊', '🎉', '✨'],
+    flamme:   ['🫓', '🔥'],
+    toque:    ['👨‍🍳', '👩‍🍳', '🧑‍🍳'],
+    stars:    ['⭐', '🌟', '💫'],
+    hearts:   ['❤️', '🧡', '💛', '💚', '💙', '💜']
   };
 
-  const emojis = emojiMap[deco] || [];
+  const pattern = emojiPatterns[deco] || ['✨'];
   return positions.map((pos, i) => ({
     ...pos,
     rotation: rotations[i],
     size: sizes[i],
-    emoji: emojis[i] || '✨'
+    emoji: pattern[i % pattern.length]
   }));
 }
 
