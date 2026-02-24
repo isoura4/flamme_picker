@@ -11,6 +11,8 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 if (!process.env.ADMIN_PASSWORD) {
   console.warn('⚠️  ADMIN_PASSWORD non défini. Utilisez le mot de passe par défaut (déconseillé en production).');
 }
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llava';
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 
@@ -167,6 +169,43 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), (req, res)
   db.memories.push(memory);
   writeDB(db);
   res.status(201).json(memory);
+});
+
+// Kiosque AI description via Ollama vision model
+app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'image requise' });
+
+  try {
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+
+    const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        prompt: "Décris cette photo en une seule phrase courte, drôle et décalée en français. Sois créatif et humoristique ! Maximum 100 caractères.",
+        images: [base64Image],
+        stream: false
+      })
+    });
+
+    if (!ollamaRes.ok) {
+      const errText = await ollamaRes.text();
+      throw new Error(`Ollama error: ${ollamaRes.status} – ${errText}`);
+    }
+
+    const ollamaData = await ollamaRes.json();
+    const caption = (ollamaData.response || '').trim().substring(0, 100);
+
+    res.json({ caption });
+  } catch (e) {
+    console.error('Erreur Ollama:', e.message);
+    res.status(502).json({ error: "Impossible de contacter l'IA. Vérifiez qu'Ollama est lancé." });
+  } finally {
+    // Clean up temporary uploaded file
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+  }
 });
 
 // ============================================================
