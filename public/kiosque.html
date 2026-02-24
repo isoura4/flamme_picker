@@ -42,8 +42,59 @@
   <!-- Preview view -->
   <div class="kiosque-container" id="previewView" style="display:none">
     <div class="kiosque-preview-wrap">
-      <img id="previewImg" src="" alt="Aperçu de la photo">
+      <div class="kiosque-preview-canvas-wrap">
+        <canvas id="previewCanvas"></canvas>
+        <img id="previewImg" src="" alt="Aperçu de la photo" style="display:none">
+      </div>
     </div>
+
+    <!-- Filters -->
+    <div class="kiosque-filters">
+      <h3>🎨 Filtres</h3>
+      <div class="filter-options" id="filterOptions">
+        <button class="filter-btn active" data-filter="none" title="Aucun filtre">
+          <span class="filter-preview" style="background:#ddd"></span>
+          <span>Normal</span>
+        </button>
+        <button class="filter-btn" data-filter="sepia" title="Sépia">
+          <span class="filter-preview" style="background:linear-gradient(135deg,#d4a574,#8b6914)"></span>
+          <span>Sépia</span>
+        </button>
+        <button class="filter-btn" data-filter="grayscale" title="Noir & Blanc">
+          <span class="filter-preview" style="background:linear-gradient(135deg,#999,#333)"></span>
+          <span>N&B</span>
+        </button>
+        <button class="filter-btn" data-filter="warm" title="Chaud">
+          <span class="filter-preview" style="background:linear-gradient(135deg,#ff9a56,#e05a1a)"></span>
+          <span>Chaud</span>
+        </button>
+        <button class="filter-btn" data-filter="cool" title="Froid">
+          <span class="filter-preview" style="background:linear-gradient(135deg,#56c4ff,#1a6ee0)"></span>
+          <span>Froid</span>
+        </button>
+        <button class="filter-btn" data-filter="bright" title="Lumineux">
+          <span class="filter-preview" style="background:linear-gradient(135deg,#fff8e1,#ffc107)"></span>
+          <span>Vif</span>
+        </button>
+        <button class="filter-btn" data-filter="vintage" title="Vintage">
+          <span class="filter-preview" style="background:linear-gradient(135deg,#c19a6b,#6b4226)"></span>
+          <span>Vintage</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Decorations -->
+    <div class="kiosque-decorations">
+      <h3>✨ Décorations</h3>
+      <div class="decoration-options" id="decorationOptions">
+        <button class="deco-btn" data-deco="confetti" title="Confettis">🎊 Confettis</button>
+        <button class="deco-btn" data-deco="flamme" title="Parts de flammekueche">🫓 Flammes</button>
+        <button class="deco-btn" data-deco="toque" title="Toque de chef">👨‍🍳 Toques</button>
+        <button class="deco-btn" data-deco="stars" title="Étoiles">⭐ Étoiles</button>
+        <button class="deco-btn" data-deco="hearts" title="Cœurs">❤️ Cœurs</button>
+      </div>
+    </div>
+
     <div class="form-group" style="max-width:400px;margin:1rem auto 0">
       <label for="photoCaption">Légende (optionnel)</label>
       <input type="text" id="photoCaption" placeholder="Décrivez votre photo…" maxlength="100">
