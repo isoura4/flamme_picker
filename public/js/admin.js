@@ -26,6 +26,7 @@ function fmtDate(iso) {
 
 // ---- Auth ----
 async function tryLogin() {
+  debugLog('Admin: attempting login…');
   const pw = document.getElementById('adminPassword').value;
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
@@ -41,6 +42,7 @@ async function tryLogin() {
 
     TOKEN = data.token;
     sessionStorage.setItem('adminToken', TOKEN);
+    debugLog('Admin: login successful');
     showPanel();
   } catch (e) {
     errEl.textContent = e.message;
@@ -56,6 +58,7 @@ function showPanel() {
 }
 
 function logout() {
+  debugLog('Admin: logging out');
   TOKEN = '';
   sessionStorage.removeItem('adminToken');
   stopAutoRefresh();
@@ -86,6 +89,7 @@ document.querySelectorAll('.sidebar-link[data-tab]').forEach(link => {
 
 // ---- ORDERS ----
 async function loadOrders() {
+  debugLog('Admin: loading orders…');
   const tbody = document.getElementById('ordersBody');
   tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem">Chargement…</td></tr>`;
 
@@ -93,6 +97,7 @@ async function loadOrders() {
     const res = await fetch('/api/admin/orders', { headers: authHeaders() });
     if (res.status === 401) { logout(); return; }
     const orders = await res.json();
+    debugLog('Admin: loaded', orders.length, 'orders');
     renderOrders(orders);
   } catch {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger)">Erreur de chargement</td></tr>`;
@@ -149,6 +154,7 @@ function renderOrders(orders) {
 }
 
 async function updateOrder(id, field, value) {
+  debugLog('Admin: updating order', id, field, value);
   try {
     const res = await fetch(`/api/admin/orders/${id}`, {
       method: 'PATCH',
@@ -165,6 +171,7 @@ async function updateOrder(id, field, value) {
 
 async function deleteOrder(id) {
   if (!confirm('Supprimer cette commande ?')) return;
+  debugLog('Admin: deleting order', id);
   try {
     await fetch(`/api/admin/orders/${id}`, { method: 'DELETE', headers: authHeaders() });
     toast('Commande supprimée');
@@ -208,6 +215,7 @@ document.getElementById('toggleAutoRefresh').addEventListener('click', toggleAut
 
 // ---- FLAMES ----
 async function loadFlames() {
+  debugLog('Admin: loading flames…');
   const grid = document.getElementById('flamesAdminGrid');
   grid.innerHTML = '<p style="color:var(--text-muted)">Chargement…</p>';
   try {
@@ -320,6 +328,7 @@ async function deleteFlame(id) {
 
 // ---- MEMORIES ----
 async function loadAdminMemories() {
+  debugLog('Admin: loading memories…');
   const grid = document.getElementById('memoriesAdminGrid');
   grid.innerHTML = '<p style="color:var(--text-muted)">Chargement…</p>';
   try {
@@ -385,6 +394,7 @@ document.getElementById('uploadMemoryBtn').addEventListener('click', async () =>
 
 async function deleteMemory(id) {
   if (!confirm('Supprimer cette photo ?')) return;
+  debugLog('Admin: deleting memory', id);
   try {
     await fetch(`/api/admin/memories/${id}`, { method: 'DELETE', headers: authHeaders() });
     toast('Photo supprimée');
