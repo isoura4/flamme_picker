@@ -98,7 +98,7 @@
     <div class="form-group" style="max-width:400px;margin:1rem auto 0">
       <label for="photoCaption">Légende (optionnel)</label>
       <input type="text" id="photoCaption" placeholder="Décrivez votre photo…" maxlength="50">
-      <button class="btn btn-secondary btn-sm" id="aiCaptionBtn" style="margin-top:0.5rem" type="button">🤖 Description IA</button>
+      <button class="btn btn-secondary btn-sm" id="aiCaptionBtn" style="margin-top:0.5rem;display:none" type="button">🤖 Description IA</button>
     </div>
     <div class="kiosque-controls">
       <button class="btn btn-secondary" id="retakeBtn">↻ Reprendre</button>
@@ -122,6 +122,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
+<script src="/js/config.js"></script>
 <script src="/js/kiosque.js"></script>
 </body>
 </html>

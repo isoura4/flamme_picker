@@ -8,6 +8,7 @@ const PHOTOS_PER_ROW = 5;
 
 // ---- Load data ----
 async function loadMemories() {
+  debugLog('Memories: loading…');
   try {
     const [memoriesRes, yearsRes] = await Promise.all([
       fetch('/api/memories'),
@@ -17,6 +18,7 @@ async function loadMemories() {
     const years = await yearsRes.json();
     renderYearTabs(years);
     renderGallery(allMemories);
+    debugLog('Memories: loaded', allMemories.length, 'memories,', years.length, 'years');
   } catch {
     document.getElementById('memoriesGrid').innerHTML = '';
     document.getElementById('emptyState').style.display = 'block';
@@ -44,6 +46,7 @@ function renderYearTabs(years) {
 }
 
 function filterYear(year) {
+  debugLog('Memories: filtering by year', year);
   selectedYear = year;
   document.querySelectorAll('.year-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.year == year);
@@ -100,6 +103,7 @@ function renderGallery(memories) {
 
 // ---- Lightbox ----
 function openLightbox(src, caption) {
+  debugLog('Memories: opening lightbox', src);
   document.getElementById('lightboxImg').src = src;
   const cap = document.getElementById('lightboxCaption');
   if (caption) { cap.textContent = caption; cap.style.display = ''; }

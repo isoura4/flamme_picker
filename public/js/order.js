@@ -13,6 +13,7 @@ function toast(msg, type = 'success') {
 
 // ---- Load flames ----
 async function loadFlames() {
+  debugLog('Order: loading flames…');
   const grid = document.getElementById('flamesGrid');
   try {
     const res = await fetch('/api/flames');
@@ -56,6 +57,7 @@ async function loadFlames() {
       card.addEventListener('click', () => selectFlame(card));
     });
 
+    debugLog('Order: loaded', flames.length, 'flames');
   } catch (e) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
       <div class="icon">⚠️</div><h3>Erreur de chargement</h3>
@@ -65,6 +67,7 @@ async function loadFlames() {
 
 // ---- Select a flame ----
 function selectFlame(card) {
+  debugLog('Order: selected flame', card.dataset.name);
   document.querySelectorAll('.flame-card').forEach(c => c.classList.remove('selected'));
   card.classList.add('selected');
   selectedFlame = {
@@ -134,6 +137,8 @@ document.getElementById('confirmOrder').addEventListener('click', async () => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erreur');
+
+    debugLog('Order: order placed successfully', data);
 
     document.getElementById('successMessage').textContent =
       `Merci ${name} ! Votre ${selectedFlame.name} a bien été commandée.`;

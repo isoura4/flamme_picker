@@ -12,8 +12,10 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 if (!process.env.ADMIN_PASSWORD) {
   console.warn('⚠️  ADMIN_PASSWORD non défini. Utilisez le mot de passe par défaut (déconseillé en production).');
 }
+const OLLAMA_ENABLED = !!process.env.OLLAMA_URL;
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llava';
+const DEBUG = process.env.DEBUG === 'true';
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 
@@ -95,6 +97,11 @@ const upload = multer({
 // PUBLIC ROUTES
 // ============================================================
 
+// Get public configuration (exposes non-sensitive flags to the frontend)
+app.get('/api/config', (_req, res) => {
+  res.json({ ollamaEnabled: OLLAMA_ENABLED, debug: DEBUG });
+});
+
 // Get available flames
 app.get('/api/flames', (_req, res) => {
   const db = readDB();
@@ -174,6 +181,7 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), (req, res)
 
 // Kiosque AI description via Ollama vision model
 app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (req, res) => {
+  if (!OLLAMA_ENABLED) return res.status(501).json({ error: "L'IA n'est pas activée. Lancez l'app avec OLLAMA_URL." });
   if (!req.file) return res.status(400).json({ error: 'image requise' });
 
   try {
@@ -324,4 +332,6 @@ app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, (req, res) => 
 app.listen(PORT, () => {
   console.log(`🔥 Flamme Picker lancé sur http://localhost:${PORT}`);
   console.log(`🔑 Mot de passe admin défini via ADMIN_PASSWORD (ou valeur par défaut).`);
+  console.log(`🤖 Ollama IA: ${OLLAMA_ENABLED ? `activé (${OLLAMA_URL}, modèle: ${OLLAMA_MODEL})` : 'désactivé (définir OLLAMA_URL pour activer)'}`);
+  if (DEBUG) console.log('🐛 Mode DEBUG activé');
 });

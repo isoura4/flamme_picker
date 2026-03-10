@@ -6,6 +6,14 @@ let baseImage = null; // Original captured image (before filters/decorations)
 let selectedFilter = 'none';
 let activeDecorations = new Set();
 
+// ---- Show AI button when Ollama is enabled ----
+document.addEventListener('app-config-loaded', function (e) {
+  debugLog('Kiosque: config received', e.detail);
+  if (e.detail.ollamaEnabled) {
+    document.getElementById('aiCaptionBtn').style.display = '';
+  }
+});
+
 // ---- Toast ----
 function toast(msg, type = 'success') {
   const el = document.createElement('div');
@@ -17,6 +25,7 @@ function toast(msg, type = 'success') {
 
 // ---- Camera ----
 async function startCamera() {
+  debugLog('Kiosque: starting camera…');
   const video = document.getElementById('cameraFeed');
   const errorEl = document.getElementById('cameraError');
 
@@ -29,6 +38,7 @@ async function startCamera() {
     video.srcObject = stream;
     errorEl.style.display = 'none';
     document.getElementById('captureBtn').disabled = false;
+    debugLog('Kiosque: rear camera started');
   } catch (_err) {
     try {
       // Fallback to front / default camera
@@ -39,10 +49,12 @@ async function startCamera() {
       video.srcObject = stream;
       errorEl.style.display = 'none';
       document.getElementById('captureBtn').disabled = false;
+      debugLog('Kiosque: front camera started');
     } catch (_err2) {
       errorEl.textContent = "Impossible d'accéder à la caméra. Vérifiez les permissions de votre navigateur.";
       errorEl.style.display = 'block';
       document.getElementById('captureBtn').disabled = true;
+      debugLog('Kiosque: camera access denied');
     }
   }
 }
@@ -56,6 +68,7 @@ function stopCamera() {
 
 // ---- Capture (forced 4:3 crop) ----
 function capturePhoto() {
+  debugLog('Kiosque: capturing photo…');
   const video = document.getElementById('cameraFeed');
   const canvas = document.getElementById('cameraCanvas');
 
@@ -118,6 +131,7 @@ const FILTERS = {
 };
 
 function applyFilter(filterName) {
+  debugLog('Kiosque: applying filter', filterName);
   selectedFilter = filterName;
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.filter === filterName);
@@ -127,6 +141,7 @@ function applyFilter(filterName) {
 
 // ---- Decorations ----
 function toggleDecoration(decoName) {
+  debugLog('Kiosque: toggling decoration', decoName);
   if (activeDecorations.has(decoName)) {
     activeDecorations.delete(decoName);
   } else {
@@ -256,6 +271,7 @@ function buildAIBlob() {
 
 // ---- AI description (Ollama vision) ----
 async function generateAICaption() {
+  debugLog('Kiosque: requesting AI caption…');
   if (!capturedBlob) { toast('Aucune photo capturée.', 'error'); return; }
 
   const btn = document.getElementById('aiCaptionBtn');
@@ -277,6 +293,7 @@ async function generateAICaption() {
     if (!res.ok) throw new Error(data.error || 'Erreur');
 
     document.getElementById('photoCaption').value = data.caption;
+    debugLog('Kiosque: AI caption received', data.caption);
     toast('Description IA générée !');
   } catch (e) {
     toast(e.message, 'error');
@@ -288,6 +305,7 @@ async function generateAICaption() {
 
 // ---- Validate & upload ----
 async function validatePhoto() {
+  debugLog('Kiosque: validating and uploading photo…');
   if (!baseImage) { toast('Aucune photo à publier.', 'error'); return; }
 
   const btn = document.getElementById('validateBtn');
@@ -313,6 +331,7 @@ async function validatePhoto() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erreur');
 
+    debugLog('Kiosque: photo published successfully', data);
     // Show success
     document.getElementById('previewView').style.display = 'none';
     document.getElementById('successView').style.display = 'block';
