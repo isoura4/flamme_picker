@@ -61,16 +61,28 @@ PORT=8080 npm start
 |------------------|--------------------------|-------------------------------------------------------------------|
 | `PORT`           | `3000`                   | Port the server listens on                                        |
 | `ADMIN_PASSWORD` | `admin123`               | Password for the admin panel (**change in production**)           |
-| `OLLAMA_URL`     | `http://localhost:11434` | URL of the Ollama server for AI photo descriptions                |
+| `OLLAMA_URL`     | *(not set)*              | URL of the Ollama server – **must be set to enable AI features**  |
 | `OLLAMA_MODEL`   | `llava`                  | Ollama vision model to use (must support image input)             |
+| `DEBUG`          | `false`                  | Set to `true` to enable `[DEBUG]` logs in the browser console     |
 
-Example:
+Examples:
 
 ```bash
-ADMIN_PASSWORD=mysecretpassword OLLAMA_URL=http://localhost:11434 OLLAMA_MODEL=llava PORT=4000 npm start
+# Minimal – no AI, no debug
+npm start
+
+# Enable AI photo descriptions (requires a running Ollama instance)
+OLLAMA_URL=http://localhost:11434 npm start
+
+# Full – AI + debug logs + custom password and port
+ADMIN_PASSWORD=mysecretpassword OLLAMA_URL=http://localhost:11434 OLLAMA_MODEL=llava DEBUG=true PORT=4000 npm start
 ```
 
 > ⚠️ Always set a strong `ADMIN_PASSWORD` in production. The app will print a warning if the default password is used.
+>
+> 💡 When `OLLAMA_URL` is **not** set, all AI-related UI elements (e.g. the "🤖 Description IA" button) are hidden and the `/api/kiosque/describe` endpoint returns `501`.
+>
+> 🐛 When `DEBUG=true`, every page logs key events (camera start, photo capture, order placement, etc.) in the browser developer console prefixed with `[DEBUG]`.
 
 ---
 
@@ -97,7 +109,8 @@ Navigate to **http://localhost:3000/memories.html** to browse photos from previo
 Navigate to **http://localhost:3000/kiosque.html** to take a photo souvenir.
 
 - Photos are automatically cropped to **4:3 aspect ratio** for a consistent polaroid look.
-- After capturing, you can optionally click **🤖 Description IA** to generate a funny AI caption using Ollama (requires a running Ollama instance with a vision model like `llava`).
+- Apply real-time **filters** (sepia, grayscale, warm, cool, etc.) and **decorations** (confetti, hearts, stars, …) before publishing.
+- If the app was started with `OLLAMA_URL`, a **🤖 Description IA** button appears allowing you to generate a funny AI caption using Ollama. Without `OLLAMA_URL`, this button is hidden.
 - Click **✅ Valider et publier** to add the photo to the Memories gallery.
 
 ---
@@ -165,6 +178,7 @@ flamme_picker/
     │   └── style.css
     ├── images/        # Default flammekueche images
     ├── js/
+    │   ├── config.js   # Shared configuration & debug logging
     │   ├── order.js
     │   ├── admin.js
     │   ├── memories.js
