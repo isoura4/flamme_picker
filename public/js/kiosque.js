@@ -13,8 +13,8 @@ document.addEventListener('app-config-loaded', function (e) {
   // AI caption button depends on Ollama being enabled
   document.getElementById('aiCaptionBtn').style.display = e.detail.ollamaEnabled ? '' : 'none';
   // Filters and emojis must remain visible regardless of AI mode
-  var filters = document.querySelector('.kiosque-filters');
-  var decos = document.querySelector('.kiosque-decorations');
+  const filters = document.querySelector('.kiosque-filters');
+  const decos = document.querySelector('.kiosque-decorations');
   if (filters) filters.style.display = '';
   if (decos) decos.style.display = '';
 });
