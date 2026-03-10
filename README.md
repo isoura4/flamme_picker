@@ -109,8 +109,8 @@ Navigate to **http://localhost:3000/memories.html** to browse photos from previo
 Navigate to **http://localhost:3000/kiosque.html** to take a photo souvenir.
 
 - Photos are automatically cropped to **4:3 aspect ratio** for a consistent polaroid look.
-- Apply real-time **filters** (sepia, grayscale, warm, cool, etc.) and **decorations** (confetti, hearts, stars, …) before publishing.
-- If the app was started with `OLLAMA_URL`, a **🤖 Description IA** button appears allowing you to generate a funny AI caption using Ollama. Without `OLLAMA_URL`, this button is hidden.
+- Apply real-time **filters** (sepia, grayscale, warm, cool, etc.) and **decorations / emojis** (confetti, hearts, stars, …) before publishing. These features are **always available**, even without AI.
+- If the app was started with `OLLAMA_URL`, a **🤖 Description IA** button appears allowing you to generate a funny AI caption using Ollama. Without `OLLAMA_URL`, only this button is hidden — filters and emojis remain fully functional.
 - Click **✅ Valider et publier** to add the photo to the Memories gallery.
 
 ---
