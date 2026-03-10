@@ -6,12 +6,17 @@ let baseImage = null; // Original captured image (before filters/decorations)
 let selectedFilter = 'none';
 let activeDecorations = new Set();
 
-// ---- Show AI button when Ollama is enabled ----
+// ---- Configure UI based on server settings ----
+// Filters and decorations (emojis) are always available, even without AI.
 document.addEventListener('app-config-loaded', function (e) {
   debugLog('Kiosque: config received', e.detail);
-  if (e.detail.ollamaEnabled) {
-    document.getElementById('aiCaptionBtn').style.display = '';
-  }
+  // AI caption button depends on Ollama being enabled
+  document.getElementById('aiCaptionBtn').style.display = e.detail.ollamaEnabled ? '' : 'none';
+  // Filters and emojis must remain visible regardless of AI mode
+  var filters = document.querySelector('.kiosque-filters');
+  var decos = document.querySelector('.kiosque-decorations');
+  if (filters) filters.style.display = '';
+  if (decos) decos.style.display = '';
 });
 
 // ---- Toast ----
