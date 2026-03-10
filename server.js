@@ -184,7 +184,7 @@ app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: OLLAMA_MODEL,
-        prompt: "Décris cette photo en une seule phrase courte, drôle et décalée en français. Sois créatif et humoristique ! Maximum 100 caractères.",
+        prompt: "Décris cette photo en une seule phrase très courte, drôle et décalée en français. Sois créatif, humoristique et absurde ! Maximum 50 caractères.",
         images: [base64Image],
         stream: false
       })
@@ -196,7 +196,7 @@ app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (
     }
 
     const ollamaData = await ollamaRes.json();
-    const caption = (ollamaData.response || '').trim().substring(0, 100);
+    const caption = (ollamaData.response || '').trim().substring(0, 50);
 
     res.json({ caption });
   } catch (e) {
