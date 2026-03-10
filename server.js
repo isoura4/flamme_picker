@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const sharp = require('sharp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -176,8 +177,12 @@ app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (
   if (!req.file) return res.status(400).json({ error: 'image requise' });
 
   try {
-    const imageBuffer = fs.readFileSync(req.file.path);
-    const base64Image = imageBuffer.toString('base64');
+    // Optimise image for faster AI processing: resize to max 512px and compress
+    const optimizedBuffer = await sharp(req.file.path)
+      .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 60 })
+      .toBuffer();
+    const base64Image = optimizedBuffer.toString('base64');
 
     const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',

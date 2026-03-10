@@ -239,6 +239,21 @@ function retakePhoto() {
   startCamera();
 }
 
+// ---- Build optimised blob for AI (smaller & compressed for fast upload) ----
+function buildAIBlob() {
+  return new Promise(resolve => {
+    const canvas = document.getElementById('previewCanvas');
+    const maxDim = 512;
+    const scale = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+    const aiCanvas = document.createElement('canvas');
+    aiCanvas.width = Math.round(canvas.width * scale);
+    aiCanvas.height = Math.round(canvas.height * scale);
+    const ctx = aiCanvas.getContext('2d');
+    ctx.drawImage(canvas, 0, 0, aiCanvas.width, aiCanvas.height);
+    aiCanvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.6);
+  });
+}
+
 // ---- AI description (Ollama vision) ----
 async function generateAICaption() {
   if (!capturedBlob) { toast('Aucune photo capturée.', 'error'); return; }
@@ -247,8 +262,11 @@ async function generateAICaption() {
   btn.disabled = true;
   btn.textContent = '🤖 Génération…';
 
+  // Build a smaller optimised image for faster AI processing
+  const aiBlob = await buildAIBlob();
+
   const formData = new FormData();
-  formData.append('image', capturedBlob, `photo-${Date.now()}.jpg`);
+  formData.append('image', aiBlob, `photo-${Date.now()}.jpg`);
 
   try {
     const res = await fetch('/api/kiosque/describe', {
