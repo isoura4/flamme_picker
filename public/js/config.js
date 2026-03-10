@@ -13,4 +13,4 @@ fetch('/api/config')
     if (config.debug) console.log('[DEBUG] App config loaded:', config);
     document.dispatchEvent(new CustomEvent('app-config-loaded', { detail: config }));
   })
-  .catch(function () {});
+  .catch(function (err) { console.warn('Config loading failed:', err.message); });

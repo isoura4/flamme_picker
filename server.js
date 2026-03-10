@@ -181,7 +181,7 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), (req, res)
 
 // Kiosque AI description via Ollama vision model
 app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (req, res) => {
-  if (!OLLAMA_ENABLED) return res.status(501).json({ error: "L'IA n'est pas activée. Lancez l'app avec OLLAMA_URL." });
+  if (!OLLAMA_ENABLED) return res.status(501).json({ error: "L'IA n'est pas activée. Définissez la variable d'environnement OLLAMA_URL pour activer." });
   if (!req.file) return res.status(400).json({ error: 'image requise' });
 
   try {
