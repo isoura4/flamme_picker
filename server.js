@@ -108,26 +108,16 @@ function toPublicFilePath(imagePath) {
   return resolvedPath;
 }
 
-function toSafeUploadTempPath(filePath) {
-  const uploadsDir = path.resolve(UPLOADS_DIR);
-  const resolvedPath = path.resolve(filePath);
-  if (resolvedPath !== uploadsDir && !resolvedPath.startsWith(`${uploadsDir}${path.sep}`)) {
-    throw new Error('Chemin temporaire invalide');
-  }
-  return resolvedPath;
-}
-
 function toSafeImageExtension(fileName) {
   const ext = path.extname(fileName).toLowerCase();
   return /^\.[a-z0-9]{1,10}$/.test(ext) ? ext : '.jpg';
 }
 
-async function safeUnlink(filePath) {
-  try {
-    await fsPromises.unlink(filePath);
-  } catch (e) {
-    if (e.code !== 'ENOENT') throw e;
+function toSafeTempUploadPath(fileName) {
+  if (!/^[a-f0-9-]{36}\.[a-z0-9]{1,10}$/i.test(fileName)) {
+    throw new Error('Nom de fichier temporaire invalide');
   }
+  return path.join(UPLOADS_DIR, fileName);
 }
 
 // ---------- Middleware ----------
@@ -222,11 +212,13 @@ app.get('/api/memories/years', (_req, res) => {
 // Kiosque photo upload (public – webcam / smartphone camera)
 app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'image requise' });
-  const tempFilePath = toSafeUploadTempPath(req.file.path);
+  const tempFilePath = toSafeTempUploadPath(req.file.filename);
 
   const yearNum = parseYearOrNull(req.body.year || new Date().getFullYear().toString());
   if (yearNum === null) {
-    await safeUnlink(tempFilePath);
+    await fsPromises.unlink(tempFilePath).catch((e) => {
+      if (e.code !== 'ENOENT') throw e;
+    });
     return res.status(400).json({ error: 'Année invalide' });
   }
 
@@ -253,8 +245,15 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req
 
     res.status(201).json(memory);
   } catch (e) {
-    if (imagePath) await safeUnlink(toPublicFilePath(imagePath));
-    else await safeUnlink(tempFilePath);
+    if (imagePath) {
+      await fsPromises.unlink(toPublicFilePath(imagePath)).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    } else {
+      await fsPromises.unlink(tempFilePath).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    }
     console.error('Erreur upload kiosque:', e.message);
     res.status(500).json({ error: "Impossible d'enregistrer la photo" });
   }
@@ -264,10 +263,11 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req
 app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (req, res) => {
   if (!OLLAMA_ENABLED) return res.status(501).json({ error: "L'IA n'est pas activée. Définissez la variable d'environnement OLLAMA_URL pour activer." });
   if (!req.file) return res.status(400).json({ error: 'image requise' });
+  const tempFilePath = toSafeTempUploadPath(req.file.filename);
 
   try {
     // Optimise image for faster AI processing: resize to max 512px and compress
-    const optimizedBuffer = await sharp(req.file.path)
+    const optimizedBuffer = await sharp(tempFilePath)
       .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 60 })
       .toBuffer();
@@ -298,7 +298,9 @@ app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (
     res.status(502).json({ error: "Impossible de contacter l'IA. Vérifiez qu'Ollama est lancé." });
   } finally {
     // Clean up temporary uploaded file
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    await fsPromises.unlink(tempFilePath).catch((e) => {
+      if (e.code !== 'ENOENT') throw e;
+    });
   }
 });
 
@@ -383,10 +385,12 @@ app.delete('/api/admin/flames/:id', verifyAdmin, (req, res) => {
 app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), async (req, res) => {
   const { year, caption } = req.body;
   if (!req.file || !year) return res.status(400).json({ error: 'image et year sont requis' });
-  const tempFilePath = toSafeUploadTempPath(req.file.path);
+  const tempFilePath = toSafeTempUploadPath(req.file.filename);
   const yearNum = parseYearOrNull(year);
   if (yearNum === null) {
-    await safeUnlink(tempFilePath);
+    await fsPromises.unlink(tempFilePath).catch((e) => {
+      if (e.code !== 'ENOENT') throw e;
+    });
     return res.status(400).json({ error: 'Année invalide' });
   }
 
@@ -413,8 +417,15 @@ app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image
 
     res.status(201).json(memory);
   } catch (e) {
-    if (imagePath) await safeUnlink(toPublicFilePath(imagePath));
-    else await safeUnlink(tempFilePath);
+    if (imagePath) {
+      await fsPromises.unlink(toPublicFilePath(imagePath)).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    } else {
+      await fsPromises.unlink(tempFilePath).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    }
     console.error('Erreur upload admin memories:', e.message);
     res.status(500).json({ error: "Impossible d'enregistrer la photo" });
   }
@@ -428,7 +439,11 @@ app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, async (req, re
       return found || null;
     });
 
-    if (memory) await safeUnlink(toPublicFilePath(memory.imagePath));
+    if (memory) {
+      await fsPromises.unlink(toPublicFilePath(memory.imagePath)).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    }
     res.json({ success: true });
   } catch (e) {
     console.error('Erreur suppression memory:', e.message);
