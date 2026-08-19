@@ -5,8 +5,28 @@ const fs = require('fs');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const sharp = require('sharp');
+const fsPromises = fs.promises;
 
 const app = express();
+
+for (const arg of process.argv.slice(2)) {
+  const match = arg.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+  if (match && process.env[match[1]] === undefined) {
+    process.env[match[1]] = match[2];
+  }
+}
+
+function parseTrustProxy(value) {
+  if (value === undefined) return 'loopback';
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (/^\d+$/.test(value)) return Number(value);
+  return value;
+}
+
+const TRUST_PROXY = parseTrustProxy(process.env.TRUST_PROXY);
+app.set('trust proxy', TRUST_PROXY);
+
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 if (!process.env.ADMIN_PASSWORD) {
@@ -60,6 +80,61 @@ function initDB() {
   return data;
 }
 
+let dbWriteQueue = Promise.resolve();
+
+function withDBWriteLock(mutateFn) {
+  const operation = dbWriteQueue.then(() => {
+    const db = readDB();
+    const result = mutateFn(db);
+    writeDB(db);
+    return result;
+  });
+  dbWriteQueue = operation.catch(() => {});
+  return operation;
+}
+
+function parseYearOrNull(value) {
+  const yearNum = parseInt(value, 10);
+  if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) return null;
+  return yearNum;
+}
+
+function imageExtensionFromMime(mimetype) {
+  const mapping = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif'
+  };
+  return mapping[mimetype] || '.jpg';
+}
+
+function toStoredMemoryFilePath(imagePath) {
+  const withYear = /^\/uploads\/(20\d{2}|2100)\/([a-f0-9-]{36}\.[a-z0-9]{1,10})$/i.exec(imagePath);
+  if (withYear) return path.join(UPLOADS_DIR, withYear[1], withYear[2]);
+
+  const legacy = /^\/uploads\/([a-f0-9-]{36}\.[a-z0-9]{1,10})$/i.exec(imagePath);
+  if (legacy) return path.join(UPLOADS_DIR, legacy[1]);
+
+  throw new Error('Chemin mémoire invalide');
+}
+
+async function writeImageFile(destinationDir, mimetype, buffer) {
+  const extension = imageExtensionFromMime(mimetype);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const finalFileName = `${uuidv4()}${extension}`;
+    const newFilePath = path.join(destinationDir, finalFileName);
+    try {
+      await fsPromises.writeFile(newFilePath, buffer, { flag: 'wx' });
+      return finalFileName;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+    }
+  }
+  throw new Error("Impossible de générer un nom de fichier unique");
+}
+
 // ---------- Middleware ----------
 
 app.use(express.json());
@@ -79,13 +154,8 @@ function verifyAdmin(req, res, next) {
 
 // ---------- Multer ----------
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
@@ -150,33 +220,41 @@ app.get('/api/memories/years', (_req, res) => {
 });
 
 // Kiosque photo upload (public – webcam / smartphone camera)
-app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), (req, res) => {
+app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'image requise' });
 
-  const year = req.body.year || new Date().getFullYear().toString();
-  const yearNum = parseInt(year);
-  if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
-    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    return res.status(400).json({ error: 'Année invalide' });
+  const yearNum = parseYearOrNull(req.body.year || new Date().getFullYear().toString());
+  if (yearNum === null) return res.status(400).json({ error: 'Année invalide' });
+
+  let imagePath = null;
+  try {
+    const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
+    await fsPromises.mkdir(yearDir, { recursive: true });
+    const finalFileName = await writeImageFile(yearDir, req.file.mimetype, req.file.buffer);
+    imagePath = `/uploads/${yearNum}/${finalFileName}`;
+
+    const memory = await withDBWriteLock((db) => {
+      const item = {
+        id: uuidv4(),
+        year: yearNum,
+        caption: (req.body.caption || '').trim().substring(0, 200),
+        imagePath,
+        createdAt: new Date().toISOString()
+      };
+      db.memories.push(item);
+      return item;
+    });
+
+    res.status(201).json(memory);
+  } catch (e) {
+    if (imagePath) {
+      await fsPromises.unlink(toStoredMemoryFilePath(imagePath)).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    }
+    console.error('Erreur upload kiosque:', e.message);
+    res.status(500).json({ error: "Impossible d'enregistrer la photo" });
   }
-
-  // Move file to year-based folder
-  const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
-  if (!fs.existsSync(yearDir)) fs.mkdirSync(yearDir, { recursive: true });
-  const newFilePath = path.join(yearDir, req.file.filename);
-  fs.renameSync(req.file.path, newFilePath);
-
-  const db = readDB();
-  const memory = {
-    id: uuidv4(),
-    year: yearNum,
-    caption: (req.body.caption || '').trim().substring(0, 200),
-    imagePath: `/uploads/${yearNum}/${req.file.filename}`,
-    createdAt: new Date().toISOString()
-  };
-  db.memories.push(memory);
-  writeDB(db);
-  res.status(201).json(memory);
 });
 
 // Kiosque AI description via Ollama vision model
@@ -186,7 +264,7 @@ app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (
 
   try {
     // Optimise image for faster AI processing: resize to max 512px and compress
-    const optimizedBuffer = await sharp(req.file.path)
+    const optimizedBuffer = await sharp(req.file.buffer)
       .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 60 })
       .toBuffer();
@@ -215,9 +293,6 @@ app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (
   } catch (e) {
     console.error('Erreur Ollama:', e.message);
     res.status(502).json({ error: "Impossible de contacter l'IA. Vérifiez qu'Ollama est lancé." });
-  } finally {
-    // Clean up temporary uploaded file
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
   }
 });
 
@@ -299,32 +374,61 @@ app.delete('/api/admin/flames/:id', verifyAdmin, (req, res) => {
 
 // --- Memories ---
 
-app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), (req, res) => {
+app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), async (req, res) => {
   const { year, caption } = req.body;
   if (!req.file || !year) return res.status(400).json({ error: 'image et year sont requis' });
-  const db = readDB();
-  const memory = {
-    id: uuidv4(),
-    year: parseInt(year),
-    caption: caption || '',
-    imagePath: `/uploads/${req.file.filename}`,
-    createdAt: new Date().toISOString()
-  };
-  db.memories.push(memory);
-  writeDB(db);
-  res.status(201).json(memory);
+  const yearNum = parseYearOrNull(year);
+  if (yearNum === null) return res.status(400).json({ error: 'Année invalide' });
+
+  let imagePath = null;
+  try {
+    const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
+    await fsPromises.mkdir(yearDir, { recursive: true });
+    const finalFileName = await writeImageFile(yearDir, req.file.mimetype, req.file.buffer);
+    imagePath = `/uploads/${yearNum}/${finalFileName}`;
+
+    const memory = await withDBWriteLock((db) => {
+      const item = {
+        id: uuidv4(),
+        year: yearNum,
+        caption: (caption || '').trim().substring(0, 200),
+        imagePath,
+        createdAt: new Date().toISOString()
+      };
+      db.memories.push(item);
+      return item;
+    });
+
+    res.status(201).json(memory);
+  } catch (e) {
+    if (imagePath) {
+      await fsPromises.unlink(toStoredMemoryFilePath(imagePath)).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    }
+    console.error('Erreur upload admin memories:', e.message);
+    res.status(500).json({ error: "Impossible d'enregistrer la photo" });
+  }
 });
 
-app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, (req, res) => {
-  const db = readDB();
-  const memory = db.memories.find(m => m.id === req.params.id);
-  if (memory) {
-    const filePath = path.join(__dirname, 'public', memory.imagePath);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    db.memories = db.memories.filter(m => m.id !== req.params.id);
-    writeDB(db);
+app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, async (req, res) => {
+  try {
+    const memory = await withDBWriteLock((db) => {
+      const found = db.memories.find(m => m.id === req.params.id);
+      if (found) db.memories = db.memories.filter(m => m.id !== req.params.id);
+      return found || null;
+    });
+
+    if (memory) {
+      await fsPromises.unlink(toStoredMemoryFilePath(memory.imagePath)).catch((err) => {
+        if (err.code !== 'ENOENT') throw err;
+      });
+    }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Erreur suppression memory:', e.message);
+    res.status(500).json({ error: 'Impossible de supprimer la photo' });
   }
-  res.json({ success: true });
 });
 
 // ---------- Start ----------
@@ -332,6 +436,7 @@ app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, (req, res) => 
 app.listen(PORT, () => {
   console.log(`🔥 Flamme Picker lancé sur http://localhost:${PORT}`);
   console.log(`🔑 Mot de passe admin défini via ADMIN_PASSWORD (ou valeur par défaut).`);
+  console.log(`🌐 Trust proxy: ${JSON.stringify(TRUST_PROXY)}`);
   console.log(`🤖 Ollama IA: ${OLLAMA_ENABLED ? `activé (${OLLAMA_URL}, modèle: ${OLLAMA_MODEL})` : 'désactivé (définir OLLAMA_URL pour activer)'}`);
   if (DEBUG) console.log('🐛 Mode DEBUG activé');
 });

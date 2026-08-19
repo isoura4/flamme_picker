@@ -64,6 +64,7 @@ PORT=8080 npm start
 | `OLLAMA_URL`     | *(not set)*              | URL of the Ollama server – **must be set to enable AI features**  |
 | `OLLAMA_MODEL`   | `llava`                  | Ollama vision model to use (must support image input)             |
 | `DEBUG`          | `false`                  | Set to `true` to enable `[DEBUG]` logs in the browser console     |
+| `TRUST_PROXY`    | `loopback`               | Express `trust proxy` value for rate-limit/IP handling            |
 
 Examples:
 
@@ -76,6 +77,9 @@ OLLAMA_URL=http://localhost:11434 npm start
 
 # Full – AI + debug logs + custom password and port
 ADMIN_PASSWORD=mysecretpassword OLLAMA_URL=http://localhost:11434 OLLAMA_MODEL=llava DEBUG=true PORT=4000 npm start
+
+# Alternative syntax also supported
+npm start ADMIN_PASSWORD=mysecretpassword
 ```
 
 > ⚠️ Always set a strong `ADMIN_PASSWORD` in production. The app will print a warning if the default password is used.
