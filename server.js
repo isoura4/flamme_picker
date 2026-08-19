@@ -99,25 +99,40 @@ function parseYearOrNull(value) {
   return yearNum;
 }
 
-function toPublicFilePath(imagePath) {
-  const publicDir = path.resolve(__dirname, 'public');
-  const resolvedPath = path.resolve(publicDir, imagePath.replace(/^\/+/, ''));
-  if (resolvedPath !== publicDir && !resolvedPath.startsWith(`${publicDir}${path.sep}`)) {
-    throw new Error('Chemin public invalide');
-  }
-  return resolvedPath;
+function imageExtensionFromMime(mimetype) {
+  const mapping = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif'
+  };
+  return mapping[mimetype] || '.jpg';
 }
 
-function toSafeImageExtension(fileName) {
-  const ext = path.extname(fileName).toLowerCase();
-  return /^\.[a-z0-9]{1,10}$/.test(ext) ? ext : '.jpg';
+function toStoredMemoryFilePath(imagePath) {
+  const withYear = /^\/uploads\/(20\d{2}|2100)\/([a-f0-9-]{36}\.[a-z0-9]{1,10})$/i.exec(imagePath);
+  if (withYear) return path.join(UPLOADS_DIR, withYear[1], withYear[2]);
+
+  const legacy = /^\/uploads\/([a-f0-9-]{36}\.[a-z0-9]{1,10})$/i.exec(imagePath);
+  if (legacy) return path.join(UPLOADS_DIR, legacy[1]);
+
+  throw new Error('Chemin mémoire invalide');
 }
 
-function toSafeTempUploadPath(fileName) {
-  if (!/^[a-f0-9-]{36}\.[a-z0-9]{1,10}$/i.test(fileName)) {
-    throw new Error('Nom de fichier temporaire invalide');
+async function writeImageFile(destinationDir, mimetype, buffer) {
+  const extension = imageExtensionFromMime(mimetype);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const finalFileName = `${uuidv4()}${extension}`;
+    const newFilePath = path.join(destinationDir, finalFileName);
+    try {
+      await fsPromises.writeFile(newFilePath, buffer, { flag: 'wx' });
+      return finalFileName;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+    }
   }
-  return path.join(UPLOADS_DIR, fileName);
+  throw new Error("Impossible de générer un nom de fichier unique");
 }
 
 // ---------- Middleware ----------
@@ -139,13 +154,8 @@ function verifyAdmin(req, res, next) {
 
 // ---------- Multer ----------
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
@@ -212,23 +222,15 @@ app.get('/api/memories/years', (_req, res) => {
 // Kiosque photo upload (public – webcam / smartphone camera)
 app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'image requise' });
-  const tempFilePath = toSafeTempUploadPath(req.file.filename);
 
   const yearNum = parseYearOrNull(req.body.year || new Date().getFullYear().toString());
-  if (yearNum === null) {
-    await fsPromises.unlink(tempFilePath).catch((e) => {
-      if (e.code !== 'ENOENT') throw e;
-    });
-    return res.status(400).json({ error: 'Année invalide' });
-  }
+  if (yearNum === null) return res.status(400).json({ error: 'Année invalide' });
 
   let imagePath = null;
   try {
     const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
     await fsPromises.mkdir(yearDir, { recursive: true });
-    const finalFileName = `${uuidv4()}${toSafeImageExtension(req.file.filename)}`;
-    const newFilePath = path.join(yearDir, finalFileName);
-    await fsPromises.rename(tempFilePath, newFilePath);
+    const finalFileName = await writeImageFile(yearDir, req.file.mimetype, req.file.buffer);
     imagePath = `/uploads/${yearNum}/${finalFileName}`;
 
     const memory = await withDBWriteLock((db) => {
@@ -246,11 +248,7 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req
     res.status(201).json(memory);
   } catch (e) {
     if (imagePath) {
-      await fsPromises.unlink(toPublicFilePath(imagePath)).catch((err) => {
-        if (err.code !== 'ENOENT') throw err;
-      });
-    } else {
-      await fsPromises.unlink(tempFilePath).catch((err) => {
+      await fsPromises.unlink(toStoredMemoryFilePath(imagePath)).catch((err) => {
         if (err.code !== 'ENOENT') throw err;
       });
     }
@@ -263,11 +261,10 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req
 app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (req, res) => {
   if (!OLLAMA_ENABLED) return res.status(501).json({ error: "L'IA n'est pas activée. Définissez la variable d'environnement OLLAMA_URL pour activer." });
   if (!req.file) return res.status(400).json({ error: 'image requise' });
-  const tempFilePath = toSafeTempUploadPath(req.file.filename);
 
   try {
     // Optimise image for faster AI processing: resize to max 512px and compress
-    const optimizedBuffer = await sharp(tempFilePath)
+    const optimizedBuffer = await sharp(req.file.buffer)
       .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 60 })
       .toBuffer();
@@ -296,11 +293,6 @@ app.post('/api/kiosque/describe', uploadLimiter, upload.single('image'), async (
   } catch (e) {
     console.error('Erreur Ollama:', e.message);
     res.status(502).json({ error: "Impossible de contacter l'IA. Vérifiez qu'Ollama est lancé." });
-  } finally {
-    // Clean up temporary uploaded file
-    await fsPromises.unlink(tempFilePath).catch((e) => {
-      if (e.code !== 'ENOENT') throw e;
-    });
   }
 });
 
@@ -385,22 +377,14 @@ app.delete('/api/admin/flames/:id', verifyAdmin, (req, res) => {
 app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), async (req, res) => {
   const { year, caption } = req.body;
   if (!req.file || !year) return res.status(400).json({ error: 'image et year sont requis' });
-  const tempFilePath = toSafeTempUploadPath(req.file.filename);
   const yearNum = parseYearOrNull(year);
-  if (yearNum === null) {
-    await fsPromises.unlink(tempFilePath).catch((e) => {
-      if (e.code !== 'ENOENT') throw e;
-    });
-    return res.status(400).json({ error: 'Année invalide' });
-  }
+  if (yearNum === null) return res.status(400).json({ error: 'Année invalide' });
 
   let imagePath = null;
   try {
     const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
     await fsPromises.mkdir(yearDir, { recursive: true });
-    const finalFileName = `${uuidv4()}${toSafeImageExtension(req.file.filename)}`;
-    const newFilePath = path.join(yearDir, finalFileName);
-    await fsPromises.rename(tempFilePath, newFilePath);
+    const finalFileName = await writeImageFile(yearDir, req.file.mimetype, req.file.buffer);
     imagePath = `/uploads/${yearNum}/${finalFileName}`;
 
     const memory = await withDBWriteLock((db) => {
@@ -418,11 +402,7 @@ app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image
     res.status(201).json(memory);
   } catch (e) {
     if (imagePath) {
-      await fsPromises.unlink(toPublicFilePath(imagePath)).catch((err) => {
-        if (err.code !== 'ENOENT') throw err;
-      });
-    } else {
-      await fsPromises.unlink(tempFilePath).catch((err) => {
+      await fsPromises.unlink(toStoredMemoryFilePath(imagePath)).catch((err) => {
         if (err.code !== 'ENOENT') throw err;
       });
     }
@@ -440,7 +420,7 @@ app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, async (req, re
     });
 
     if (memory) {
-      await fsPromises.unlink(toPublicFilePath(memory.imagePath)).catch((err) => {
+      await fsPromises.unlink(toStoredMemoryFilePath(memory.imagePath)).catch((err) => {
         if (err.code !== 'ENOENT') throw err;
       });
     }
