@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const sharp = require('sharp');
+const fsPromises = fs.promises;
 
 const app = express();
 
@@ -77,6 +78,37 @@ function initDB() {
   };
   writeDB(data);
   return data;
+}
+
+let dbWriteQueue = Promise.resolve();
+
+function withDBWriteLock(mutateFn) {
+  const operation = dbWriteQueue.then(() => {
+    const db = readDB();
+    const result = mutateFn(db);
+    writeDB(db);
+    return result;
+  });
+  dbWriteQueue = operation.catch(() => {});
+  return operation;
+}
+
+function parseYearOrNull(value) {
+  const yearNum = parseInt(value, 10);
+  if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) return null;
+  return yearNum;
+}
+
+function toPublicFilePath(imagePath) {
+  return path.join(__dirname, 'public', imagePath.replace(/^\/+/, ''));
+}
+
+async function safeUnlink(filePath) {
+  try {
+    await fsPromises.unlink(filePath);
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+  }
 }
 
 // ---------- Middleware ----------
@@ -169,33 +201,42 @@ app.get('/api/memories/years', (_req, res) => {
 });
 
 // Kiosque photo upload (public – webcam / smartphone camera)
-app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), (req, res) => {
+app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'image requise' });
 
-  const year = req.body.year || new Date().getFullYear().toString();
-  const yearNum = parseInt(year);
-  if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
-    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+  const yearNum = parseYearOrNull(req.body.year || new Date().getFullYear().toString());
+  if (yearNum === null) {
+    await safeUnlink(req.file.path);
     return res.status(400).json({ error: 'Année invalide' });
   }
 
-  // Move file to year-based folder
-  const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
-  if (!fs.existsSync(yearDir)) fs.mkdirSync(yearDir, { recursive: true });
-  const newFilePath = path.join(yearDir, req.file.filename);
-  fs.renameSync(req.file.path, newFilePath);
+  let imagePath = null;
+  try {
+    const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
+    await fsPromises.mkdir(yearDir, { recursive: true });
+    const newFilePath = path.join(yearDir, req.file.filename);
+    await fsPromises.rename(req.file.path, newFilePath);
+    imagePath = `/uploads/${yearNum}/${req.file.filename}`;
 
-  const db = readDB();
-  const memory = {
-    id: uuidv4(),
-    year: yearNum,
-    caption: (req.body.caption || '').trim().substring(0, 200),
-    imagePath: `/uploads/${yearNum}/${req.file.filename}`,
-    createdAt: new Date().toISOString()
-  };
-  db.memories.push(memory);
-  writeDB(db);
-  res.status(201).json(memory);
+    const memory = await withDBWriteLock((db) => {
+      const item = {
+        id: uuidv4(),
+        year: yearNum,
+        caption: (req.body.caption || '').trim().substring(0, 200),
+        imagePath,
+        createdAt: new Date().toISOString()
+      };
+      db.memories.push(item);
+      return item;
+    });
+
+    res.status(201).json(memory);
+  } catch (e) {
+    if (imagePath) await safeUnlink(toPublicFilePath(imagePath));
+    else await safeUnlink(req.file.path);
+    console.error('Erreur upload kiosque:', e.message);
+    res.status(500).json({ error: "Impossible d'enregistrer la photo" });
+  }
 });
 
 // Kiosque AI description via Ollama vision model
@@ -318,32 +359,58 @@ app.delete('/api/admin/flames/:id', verifyAdmin, (req, res) => {
 
 // --- Memories ---
 
-app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), (req, res) => {
+app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), async (req, res) => {
   const { year, caption } = req.body;
   if (!req.file || !year) return res.status(400).json({ error: 'image et year sont requis' });
-  const db = readDB();
-  const memory = {
-    id: uuidv4(),
-    year: parseInt(year),
-    caption: caption || '',
-    imagePath: `/uploads/${req.file.filename}`,
-    createdAt: new Date().toISOString()
-  };
-  db.memories.push(memory);
-  writeDB(db);
-  res.status(201).json(memory);
+  const yearNum = parseYearOrNull(year);
+  if (yearNum === null) {
+    await safeUnlink(req.file.path);
+    return res.status(400).json({ error: 'Année invalide' });
+  }
+
+  let imagePath = null;
+  try {
+    const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
+    await fsPromises.mkdir(yearDir, { recursive: true });
+    const newFilePath = path.join(yearDir, req.file.filename);
+    await fsPromises.rename(req.file.path, newFilePath);
+    imagePath = `/uploads/${yearNum}/${req.file.filename}`;
+
+    const memory = await withDBWriteLock((db) => {
+      const item = {
+        id: uuidv4(),
+        year: yearNum,
+        caption: (caption || '').trim().substring(0, 200),
+        imagePath,
+        createdAt: new Date().toISOString()
+      };
+      db.memories.push(item);
+      return item;
+    });
+
+    res.status(201).json(memory);
+  } catch (e) {
+    if (imagePath) await safeUnlink(toPublicFilePath(imagePath));
+    else await safeUnlink(req.file.path);
+    console.error('Erreur upload admin memories:', e.message);
+    res.status(500).json({ error: "Impossible d'enregistrer la photo" });
+  }
 });
 
-app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, (req, res) => {
-  const db = readDB();
-  const memory = db.memories.find(m => m.id === req.params.id);
-  if (memory) {
-    const filePath = path.join(__dirname, 'public', memory.imagePath);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    db.memories = db.memories.filter(m => m.id !== req.params.id);
-    writeDB(db);
+app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, async (req, res) => {
+  try {
+    const memory = await withDBWriteLock((db) => {
+      const found = db.memories.find(m => m.id === req.params.id);
+      if (found) db.memories = db.memories.filter(m => m.id !== req.params.id);
+      return found || null;
+    });
+
+    if (memory) await safeUnlink(toPublicFilePath(memory.imagePath));
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Erreur suppression memory:', e.message);
+    res.status(500).json({ error: 'Impossible de supprimer la photo' });
   }
-  res.json({ success: true });
 });
 
 // ---------- Start ----------
