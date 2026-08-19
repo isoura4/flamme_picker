@@ -7,6 +7,25 @@ const rateLimit = require('express-rate-limit');
 const sharp = require('sharp');
 
 const app = express();
+
+for (const arg of process.argv.slice(2)) {
+  const match = arg.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+  if (match && process.env[match[1]] === undefined) {
+    process.env[match[1]] = match[2];
+  }
+}
+
+function parseTrustProxy(value) {
+  if (value === undefined) return 'loopback';
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (/^\d+$/.test(value)) return Number(value);
+  return value;
+}
+
+const TRUST_PROXY = parseTrustProxy(process.env.TRUST_PROXY);
+app.set('trust proxy', TRUST_PROXY);
+
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 if (!process.env.ADMIN_PASSWORD) {
@@ -332,6 +351,7 @@ app.delete('/api/admin/memories/:id', verifyAdmin, uploadLimiter, (req, res) => 
 app.listen(PORT, () => {
   console.log(`🔥 Flamme Picker lancé sur http://localhost:${PORT}`);
   console.log(`🔑 Mot de passe admin défini via ADMIN_PASSWORD (ou valeur par défaut).`);
+  console.log(`🌐 Trust proxy: ${JSON.stringify(TRUST_PROXY)}`);
   console.log(`🤖 Ollama IA: ${OLLAMA_ENABLED ? `activé (${OLLAMA_URL}, modèle: ${OLLAMA_MODEL})` : 'désactivé (définir OLLAMA_URL pour activer)'}`);
   if (DEBUG) console.log('🐛 Mode DEBUG activé');
 });
