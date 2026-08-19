@@ -100,7 +100,26 @@ function parseYearOrNull(value) {
 }
 
 function toPublicFilePath(imagePath) {
-  return path.join(__dirname, 'public', imagePath.replace(/^\/+/, ''));
+  const publicDir = path.resolve(__dirname, 'public');
+  const resolvedPath = path.resolve(publicDir, imagePath.replace(/^\/+/, ''));
+  if (resolvedPath !== publicDir && !resolvedPath.startsWith(`${publicDir}${path.sep}`)) {
+    throw new Error('Chemin public invalide');
+  }
+  return resolvedPath;
+}
+
+function toSafeUploadTempPath(filePath) {
+  const uploadsDir = path.resolve(UPLOADS_DIR);
+  const resolvedPath = path.resolve(filePath);
+  if (resolvedPath !== uploadsDir && !resolvedPath.startsWith(`${uploadsDir}${path.sep}`)) {
+    throw new Error('Chemin temporaire invalide');
+  }
+  return resolvedPath;
+}
+
+function toSafeImageExtension(fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  return /^\.[a-z0-9]{1,10}$/.test(ext) ? ext : '.jpg';
 }
 
 async function safeUnlink(filePath) {
@@ -203,10 +222,11 @@ app.get('/api/memories/years', (_req, res) => {
 // Kiosque photo upload (public – webcam / smartphone camera)
 app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'image requise' });
+  const tempFilePath = toSafeUploadTempPath(req.file.path);
 
   const yearNum = parseYearOrNull(req.body.year || new Date().getFullYear().toString());
   if (yearNum === null) {
-    await safeUnlink(req.file.path);
+    await safeUnlink(tempFilePath);
     return res.status(400).json({ error: 'Année invalide' });
   }
 
@@ -214,9 +234,10 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req
   try {
     const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
     await fsPromises.mkdir(yearDir, { recursive: true });
-    const newFilePath = path.join(yearDir, req.file.filename);
-    await fsPromises.rename(req.file.path, newFilePath);
-    imagePath = `/uploads/${yearNum}/${req.file.filename}`;
+    const finalFileName = `${uuidv4()}${toSafeImageExtension(req.file.filename)}`;
+    const newFilePath = path.join(yearDir, finalFileName);
+    await fsPromises.rename(tempFilePath, newFilePath);
+    imagePath = `/uploads/${yearNum}/${finalFileName}`;
 
     const memory = await withDBWriteLock((db) => {
       const item = {
@@ -233,7 +254,7 @@ app.post('/api/kiosque/photo', uploadLimiter, upload.single('image'), async (req
     res.status(201).json(memory);
   } catch (e) {
     if (imagePath) await safeUnlink(toPublicFilePath(imagePath));
-    else await safeUnlink(req.file.path);
+    else await safeUnlink(tempFilePath);
     console.error('Erreur upload kiosque:', e.message);
     res.status(500).json({ error: "Impossible d'enregistrer la photo" });
   }
@@ -362,9 +383,10 @@ app.delete('/api/admin/flames/:id', verifyAdmin, (req, res) => {
 app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image'), async (req, res) => {
   const { year, caption } = req.body;
   if (!req.file || !year) return res.status(400).json({ error: 'image et year sont requis' });
+  const tempFilePath = toSafeUploadTempPath(req.file.path);
   const yearNum = parseYearOrNull(year);
   if (yearNum === null) {
-    await safeUnlink(req.file.path);
+    await safeUnlink(tempFilePath);
     return res.status(400).json({ error: 'Année invalide' });
   }
 
@@ -372,9 +394,10 @@ app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image
   try {
     const yearDir = path.join(UPLOADS_DIR, yearNum.toString());
     await fsPromises.mkdir(yearDir, { recursive: true });
-    const newFilePath = path.join(yearDir, req.file.filename);
-    await fsPromises.rename(req.file.path, newFilePath);
-    imagePath = `/uploads/${yearNum}/${req.file.filename}`;
+    const finalFileName = `${uuidv4()}${toSafeImageExtension(req.file.filename)}`;
+    const newFilePath = path.join(yearDir, finalFileName);
+    await fsPromises.rename(tempFilePath, newFilePath);
+    imagePath = `/uploads/${yearNum}/${finalFileName}`;
 
     const memory = await withDBWriteLock((db) => {
       const item = {
@@ -391,7 +414,7 @@ app.post('/api/admin/memories', verifyAdmin, uploadLimiter, upload.single('image
     res.status(201).json(memory);
   } catch (e) {
     if (imagePath) await safeUnlink(toPublicFilePath(imagePath));
-    else await safeUnlink(req.file.path);
+    else await safeUnlink(tempFilePath);
     console.error('Erreur upload admin memories:', e.message);
     res.status(500).json({ error: "Impossible d'enregistrer la photo" });
   }
