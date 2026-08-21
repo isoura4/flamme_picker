@@ -144,6 +144,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Rate limiters
 const orderLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
 const uploadLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
+const accessControlLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 
 function verifyAdmin(req, res, next) {
   const auth = req.headers.authorization;
@@ -179,19 +180,21 @@ function isAfterPartyAllowedPath(pathname) {
 
 app.use((req, res, next) => {
   if (APP_MODE !== 'apres_soiree') return next();
-  if (hasAdminAuth(req)) return next();
-  if (req.path === '/' || req.path === '/index.html' || req.path === '/kiosque.html') {
-    return res.redirect(302, '/memories.html');
-  }
-  if ((req.method === 'GET' || req.method === 'HEAD') && isAfterPartyAllowedPath(req.path)) {
-    return next();
-  }
-  if (req.path === '/api/admin/login' && req.method === 'POST') return next();
-  if (req.path.startsWith('/api/admin/')) {
-    return res.status(401).json({ error: 'Non autorisé' });
-  }
-  if (req.path.endsWith('.html')) return res.redirect(302, '/memories.html');
-  return res.status(403).json({ error: 'Mode après soirée : accès limité aux Memories.' });
+  return accessControlLimiter(req, res, () => {
+    if (hasAdminAuth(req)) return next();
+    if (req.path === '/' || req.path === '/index.html' || req.path === '/kiosque.html') {
+      return res.redirect(302, '/memories.html');
+    }
+    if ((req.method === 'GET' || req.method === 'HEAD') && isAfterPartyAllowedPath(req.path)) {
+      return next();
+    }
+    if (req.path === '/api/admin/login' && req.method === 'POST') return next();
+    if (req.path.startsWith('/api/admin/')) {
+      return res.status(401).json({ error: 'Non autorisé' });
+    }
+    if (req.path.endsWith('.html')) return res.redirect(302, '/memories.html');
+    return res.status(403).json({ error: 'Mode après soirée : accès limité aux Memories.' });
+  });
 });
 
 // ---------- Multer ----------
