@@ -36,6 +36,7 @@ const OLLAMA_ENABLED = !!process.env.OLLAMA_URL;
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llava';
 const DEBUG = process.env.DEBUG === 'true';
+const APP_MODE = process.env.APP_MODE === 'apres_soiree' ? 'apres_soiree' : 'normal';
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 
@@ -152,6 +153,47 @@ function verifyAdmin(req, res, next) {
   next();
 }
 
+
+function hasAdminAuth(req) {
+  const auth = req.headers.authorization;
+  return !!auth && auth === ('Bearer ' + ADMIN_PASSWORD);
+}
+
+const AFTER_PARTY_ALLOWED_STATIC_PREFIXES = ['/css/', '/images/', '/uploads/'];
+const AFTER_PARTY_ALLOWED_PATHS = new Set([
+  '/memories.html',
+  '/api/config',
+  '/api/memories',
+  '/api/memories/years',
+  '/api/admin/login',
+  '/admin.html',
+  '/js/config.js',
+  '/js/memories.js',
+  '/js/admin.js'
+]);
+
+function isAfterPartyAllowedPath(pathname) {
+  if (AFTER_PARTY_ALLOWED_PATHS.has(pathname)) return true;
+  return AFTER_PARTY_ALLOWED_STATIC_PREFIXES.some(prefix => pathname.startsWith(prefix));
+}
+
+app.use((req, res, next) => {
+  if (APP_MODE !== 'apres_soiree') return next();
+  if (hasAdminAuth(req)) return next();
+  if (req.path === '/' || req.path === '/index.html' || req.path === '/kiosque.html') {
+    return res.redirect(302, '/memories.html');
+  }
+  if ((req.method === 'GET' || req.method === 'HEAD') && isAfterPartyAllowedPath(req.path)) {
+    return next();
+  }
+  if (req.path === '/api/admin/login' && req.method === 'POST') return next();
+  if (req.path.startsWith('/api/admin/')) {
+    return res.status(401).json({ error: 'Non autorisé' });
+  }
+  if (req.path.endsWith('.html')) return res.redirect(302, '/memories.html');
+  return res.status(403).json({ error: 'Mode après soirée : accès limité aux Memories.' });
+});
+
 // ---------- Multer ----------
 
 const upload = multer({
@@ -169,7 +211,12 @@ const upload = multer({
 
 // Get public configuration (exposes non-sensitive flags to the frontend)
 app.get('/api/config', (_req, res) => {
-  res.json({ ollamaEnabled: OLLAMA_ENABLED, debug: DEBUG });
+  res.json({
+    ollamaEnabled: OLLAMA_ENABLED,
+    debug: DEBUG,
+    appMode: APP_MODE,
+    afterPartyMode: APP_MODE === 'apres_soiree'
+  });
 });
 
 // Get available flames
@@ -438,5 +485,6 @@ app.listen(PORT, () => {
   console.log(`🔑 Mot de passe admin défini via ADMIN_PASSWORD (ou valeur par défaut).`);
   console.log(`🌐 Trust proxy: ${JSON.stringify(TRUST_PROXY)}`);
   console.log(`🤖 Ollama IA: ${OLLAMA_ENABLED ? `activé (${OLLAMA_URL}, modèle: ${OLLAMA_MODEL})` : 'désactivé (définir OLLAMA_URL pour activer)'}`);
+  console.log(`🎉 Mode application: ${APP_MODE}`);
   if (DEBUG) console.log('🐛 Mode DEBUG activé');
 });
